@@ -1,4 +1,6 @@
 import { Link, Route, Routes } from 'react-router'
+import Home from './pages/Home'
+import SetList from './pages/SetList'
 
 function NotFound() {
   return (
@@ -14,6 +16,8 @@ function NotFound() {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/sets" element={<SetList />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
