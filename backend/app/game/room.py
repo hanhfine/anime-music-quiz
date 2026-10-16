@@ -194,3 +194,99 @@ class Room:
         for player_id, answer in self.round.answers.items():
             self.players[player_id].score += answer.gained
         self.phase = Phase.REVEAL
+
+    # ---- ván chơi ----
+
+    def start_game(self) -> None:
+        self._require(Phase.LOBBY)
+        if not self.players:
+            raise GameError("INVALID_STATE")
+        self.questions, self.spares = build_game(self.songs, self.settings, self.popular, self.rng)
+        self._enter_round(0)
+
+    def audio_started(self, round_index: int, now: int) -> None:
+        self._require(Phase.PREPARING)
+        self._check_round(round_index)
+        rnd = self.round
+        rnd.t0 = now
+        rnd.deadline = answer_deadline(now, rnd.question.clip_ms, self.timing.grace_ms)
+        self.phase = Phase.ANSWERING
+        self.notice = None
+
+    def answer(self, player_id: str, round_index: int, option_index: int, now: int) -> None:
+        self._require(Phase.ANSWERING)
+        self._check_round(round_index)
+        rnd = self.round
+        if not 0 <= option_index < len(rnd.question.options):
+            raise GameError("INVALID_STATE")
+        if player_id in rnd.answers:
+            raise GameError("ALREADY_ANSWERED")
+        if now > rnd.deadline:
+            raise GameError("TOO_LATE")
+        t_ms = effective_time_ms(now, rnd.t0, self.effective_delays().get(player_id, 0))
+        correct = option_index == rnd.question.correct_index
+        rnd.answers[player_id] = Answer(option_index, now, points(correct, t_ms, rnd.question.clip_ms))
+        self._maybe_reveal_early()
+
+    def replay_round(self) -> None:
+        self._require(Phase.PREPARING, Phase.ANSWERING, Phase.REVEAL)
+        if self.phase is Phase.REVEAL:
+            for player_id, answer in self.round.answers.items():
+                self.players[player_id].score -= answer.gained
+        self._enter_round(self.round.index)
+
+    def audio_failed(self, round_index: int, now: int) -> None:
+        self._require(Phase.PREPARING)
+        self._check_round(round_index)
+        index = self.round.index
+        if self.spares:
+            song = self.spares.pop(0)
+            names = [s.anime_name for s in self.songs]
+            self.questions[index] = build_question(song, names, self.popular, self.settings, self.rng)
+            self._enter_round(index)
+            self.notice = "AUDIO_REPLACED"
+            return
+        del self.questions[index]
+        if index < len(self.questions):
+            self._enter_round(index)
+        else:
+            self._finish(now)
+        self.notice = "ROUND_DROPPED"
+
+    def next_round(self, now: int) -> None:
+        self._require(Phase.REVEAL)
+        if self.round.index + 1 < len(self.questions):
+            self._enter_round(self.round.index + 1)
+        else:
+            self._finish(now)
+
+    def play_again(self) -> None:
+        self._require(Phase.FINISHED)
+        for player in self.players.values():
+            player.score = 0
+        self.phase = Phase.LOBBY
+        self.questions, self.spares = [], []
+        self.round = None
+        self.finished_at = None
+        self.notice = None
+
+    def leaderboard(self) -> list[tuple[Player, int]]:
+        ranks = competition_ranks({pid: p.score for pid, p in self.players.items()})
+        rows = [(player, ranks[pid]) for pid, player in self.players.items()]
+        return sorted(rows, key=lambda row: (row[1], row[0].name.casefold()))
+
+    def _enter_round(self, index: int) -> None:
+        self.round = RoundState(index=index, question=self.questions[index])
+        self.phase = Phase.PREPARING
+        self.prepare_seq += 1
+        self.notice = None
+
+    def _check_round(self, round_index: int) -> None:
+        if round_index != self.round.index:
+            raise GameError("INVALID_STATE")
+
+    def _finish(self, now: int) -> None:
+        self.round = None
+        self.phase = Phase.FINISHED
+        self.finished_at = now
+        self.notice = None
