@@ -235,3 +235,63 @@ class GameServer:
         room.set_player_online(player.id, True)
         await self._broadcast(room)
         return {"playerId": player.id}
+
+    # ---- quản trò: đo độ trễ và điều khiển ván ----
+
+    async def _host_command(self, sid: str, command: Callable[[Room], None]) -> dict:
+        room = self._host(sid)
+        command(room)
+        await self._broadcast(room)
+        return {}
+
+    async def host_calibrate(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.start_calibration())
+
+    async def host_calib_flash(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.calib_flash(_int(data, "round"), self.clock()))
+
+    async def host_start(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.start_game())
+
+    async def host_audio_started(self, sid: str, data: object) -> dict:
+        return await self._host_command(
+            sid, lambda room: room.audio_started(_int(data, "roundIndex"), self.clock())
+        )
+
+    async def host_audio_failed(self, sid: str, data: object) -> dict:
+        def command(room: Room) -> None:
+            round_index = _int(data, "roundIndex")
+            reason = data.get("reason") if isinstance(data, dict) else None
+            logger.info("room %s: audio failed in round %s (%s)", room.code, round_index, reason)
+            room.audio_failed(round_index, self.clock())
+
+        return await self._host_command(sid, command)
+
+    async def host_replay_round(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.replay_round())
+
+    async def host_next(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.next_round(self.clock()))
+
+    async def host_play_again(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.play_again())
+
+    # ---- người chơi: bấm đo độ trễ và trả lời ----
+
+    def _player(self, sid: str) -> tuple[Room, str]:
+        session = self.sessions.get(sid)
+        if session is None or session.role != "player":
+            raise GameError("INVALID_TOKEN")
+        return self.manager.get(session.code), session.player_id
+
+    async def player_calib_tap(self, sid: str, data: object) -> dict:
+        room, player_id = self._player(sid)
+        room.calib_tap(player_id, _int(data, "round"), self.clock())
+        await self._broadcast(room)
+        return {}
+
+    async def player_answer(self, sid: str, data: object) -> dict:
+        room, player_id = self._player(sid)
+        room.answer(player_id, _int(data, "roundIndex"), _int(data, "optionIndex"), self.clock())
+        await self._broadcast(room)
+        return {}
