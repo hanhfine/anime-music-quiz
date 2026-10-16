@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Spike: YouTube IFrame</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+    #controls { padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    #controls input { width: 110px; }
+    #arena { position: relative; height: 560px; border-top: 1px solid #334155; }
+    /* The wrapper stays at one place in the DOM; only these classes change. */
+    #stage { position: absolute; transition: all .4s ease; }
+    #stage.small { right: 24px; bottom: 24px; width: 320px; height: 180px; }
+    #stage.large { left: 24px; top: 24px; width: 853px; height: 480px; }
+    #cover { position: absolute; inset: 0; background: #1e293b; display: flex; align-items: center;
+             justify-content: center; font-size: 48px; transition: opacity .4s; }
+    #stage.large #cover { opacity: 0; pointer-events: none; }
+    #log { font: 12px/1.4 ui-monospace, monospace; padding: 12px; height: 260px; overflow: auto;
+           background: #020617; white-space: pre; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    videoId <input id="vid" value="8OkpRK2_gVs" />
+    start <input id="start" type="number" value="60" />
+    end <input id="end" type="number" value="80" />
+    <button id="load">Load (loadVideoById)</button>
+    <button id="toggle">Toggle small/large (CSS only)</button>
+    <button id="stop">stopVideo</button>
+    <span id="status"></span>
+  </div>
+  <div id="arena">
+    <div id="stage" class="small">
+      <div id="player"></div>
+      <div id="cover">🎵</div>
+    </div>
+  </div>
+  <div id="log"></div>
+  <script>
+    const STATES = { "-1": "UNSTARTED", 0: "ENDED", 1: "PLAYING", 2: "PAUSED", 3: "BUFFERING", 5: "CUED" };
+    const t0 = performance.now();
+    let player = null;
+    let loadedAt = null;
+    let reported = false;
+    const log = (msg) => {
+      const line = `${((performance.now() - t0) / 1000).toFixed(2).padStart(7)}s  ${msg}\n`;
+      const el = document.getElementById("log");
+      el.textContent += line;
+      el.scrollTop = el.scrollHeight;
+    };
+    window.onYouTubeIframeAPIReady = () => {
+      player = new YT.Player("player", {
+        width: "100%",
+        height: "100%",
+        playerVars: { controls: 0, disablekb: 1, rel: 0, fs: 0, iv_load_policy: 3, playsinline: 1 },
+        events: {
+          onReady: () => log("onReady"),
+          onError: (e) => log(`onError code=${e.data}`),
+          onStateChange: (e) =>
+            log(`state=${STATES[e.data] ?? e.data} currentTime=${player.getCurrentTime().toFixed(2)}`),
+        },
+      });
+    };
+    setInterval(() => {
+      if (!player || !player.getPlayerState) return;
+      const state = player.getPlayerState();
+      const time = player.getCurrentTime();
+      const start = Number(document.getElementById("start").value);
+      document.getElementById("status").textContent =
+        `state=${STATES[state] ?? state} t=${time.toFixed(2)}`;
+      if (!reported && loadedAt !== null && state === YT.PlayerState.PLAYING && time >= start - 1) {
+        reported = true;
+        log(`>>> audio_started condition met after ${((performance.now() - loadedAt) / 1000).toFixed(2)}s (t=${time.toFixed(2)})`);
+      }
+    }, 250);
+    document.getElementById("load").onclick = () => {
+      reported = false;
+      loadedAt = performance.now();
+      const videoId = document.getElementById("vid").value.trim();
+      const startSeconds = Number(document.getElementById("start").value);
+      const endSeconds = Number(document.getElementById("end").value);
+      log(`loadVideoById ${videoId} ${startSeconds}→${endSeconds}`);
+      player.loadVideoById({ videoId, startSeconds, endSeconds });
+    };
+    document.getElementById("toggle").onclick = () => {
+      const stage = document.getElementById("stage");
+      stage.className = stage.className === "small" ? "large" : "small";
+      log(`CSS → ${stage.className}`);
+    };
+    document.getElementById("stop").onclick = () => { player.stopVideo(); log("stopVideo"); };
+  </script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
