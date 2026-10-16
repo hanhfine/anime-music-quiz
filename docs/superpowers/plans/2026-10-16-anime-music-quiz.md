@@ -10345,7 +10345,7 @@ describe('PlayerFinished', () => {
 - [ ] **Step 3: Run the tests to verify they fail**
 
 Run: `cd frontend && npm test -- src/pages/play`
-Expected: FAIL, `Failed to resolve import "./JoinForm"`.
+Expected: FAIL, `Failed to resolve import "./PlayerRound"` (Vite reports the first missing phase module it reaches).
 
 - [ ] **Step 4: Write the join form and the lobby**
 
