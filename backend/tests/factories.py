@@ -46,3 +46,19 @@ def game_error(fn: Callable, *args) -> str:
     with pytest.raises(GameError) as info:
         fn(*args)
     return info.value.code
+
+
+def set_payload(count: int = 4, **settings) -> dict:
+    """Payload `host:create_room` hợp lệ gồm `count` bài từ make_songs."""
+    songs = [
+        {
+            "videoId": song.video_id,
+            "videoTitle": song.video_title,
+            "durationSec": song.duration_sec,
+            "animeName": song.anime_name,
+            "songLabel": song.song_label,
+            "needsReview": False,
+        }
+        for song in make_songs(count)
+    ]
+    return {"set": {"songs": songs}, "settings": settings}
