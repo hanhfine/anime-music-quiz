@@ -11418,6 +11418,7 @@ Check each item:
 - With ads (no ad blocker), PREPARING lasts longer, but the countdown starts only when the song itself plays.
 - Locking a phone mid-question and unlocking it brings the player back by itself, on the right phase.
 - While a question is open, the stream never shows the video's title or picture.
+- At REVEAL the stage grows and the music keeps playing, with no gap and no restart (spike check 3).
 
 If an item fails, write down what you saw and report it to your human partner. Do not patch around it inside this task.
 

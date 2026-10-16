@@ -15,6 +15,11 @@
     #cover { position: absolute; inset: 0; background: #1e293b; display: flex; align-items: center;
              justify-content: center; font-size: 48px; transition: opacity .4s; }
     #stage.large #cover { opacity: 0; pointer-events: none; }
+    /* Transform mode: the layout size never changes, only the painted scale and position. */
+    #stage.t-small, #stage.t-large { left: 24px; top: 24px; width: 853px; height: 480px; transform-origin: top left; }
+    #stage.t-small { transform: translate(calc(100vw - 392px), 332px) scale(0.375); }
+    #stage.t-large { transform: none; }
+    #stage.t-large #cover { opacity: 0; pointer-events: none; }
     #log { font: 12px/1.4 ui-monospace, monospace; padding: 12px; height: 260px; overflow: auto;
            background: #020617; white-space: pre; }
   </style>
@@ -26,6 +31,7 @@
     end <input id="end" type="number" value="80" />
     <button id="load">Load (loadVideoById)</button>
     <button id="toggle">Toggle small/large (CSS only)</button>
+    <button id="toggle-t">Toggle small/large (transform)</button>
     <button id="stop">stopVideo</button>
     <span id="status"></span>
   </div>
@@ -82,11 +88,14 @@
       log(`loadVideoById ${videoId} ${startSeconds}→${endSeconds}`);
       player.loadVideoById({ videoId, startSeconds, endSeconds });
     };
-    document.getElementById("toggle").onclick = () => {
+    const toggle = (small, large) => {
       const stage = document.getElementById("stage");
-      stage.className = stage.className === "small" ? "large" : "small";
-      log(`CSS → ${stage.className}`);
+      stage.className = stage.className === small ? large : small;
+      const iframe = stage.querySelector("iframe");
+      log(`CSS → ${stage.className} (t=${player.getCurrentTime().toFixed(2)}, iframe ${iframe.clientWidth}x${iframe.clientHeight})`);
     };
+    document.getElementById("toggle").onclick = () => toggle("small", "large");
+    document.getElementById("toggle-t").onclick = () => toggle("t-small", "t-large");
     document.getElementById("stop").onclick = () => { player.stopVideo(); log("stopVideo"); };
   </script>
   <script src="https://www.youtube.com/iframe_api"></script>
