@@ -54,4 +54,10 @@ describe('App', () => {
     expect(screen.getByText('Phòng K7M2QX')).toBeInTheDocument()
     expect(screen.getByText('Đang kết nối tới phòng…')).toBeInTheDocument()
   })
+
+  it('routes /play/:code to the player screen', () => {
+    installFakeSocket()
+    renderAt('/play/K7M2QX')
+    expect(screen.getByRole('heading', { name: 'Vào phòng K7M2QX' })).toBeInTheDocument()
+  })
 })

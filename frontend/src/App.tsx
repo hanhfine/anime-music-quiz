@@ -1,6 +1,7 @@
 import { Link, Route, Routes } from 'react-router'
 import HostScreen from './pages/HostScreen'
 import Home from './pages/Home'
+import PlayScreen from './pages/PlayScreen'
 import SetEditor from './pages/SetEditor'
 import SetList from './pages/SetList'
 
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/sets" element={<SetList />} />
       <Route path="/sets/:id" element={<SetEditor />} />
       <Route path="/host/:code" element={<HostScreen />} />
+      <Route path="/play/:code" element={<PlayScreen />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
