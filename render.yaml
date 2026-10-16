@@ -1,0 +1,14 @@
+# Render Blueprint: Dashboard → New → Blueprint → chọn repo này.
+# Chỉ 1 instance vì phòng chơi nằm trong RAM. Render tự đặt PORT; Dockerfile đọc biến đó.
+services:
+  - type: web
+    name: anime-quiz
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      # Render hỏi giá trị lúc tạo Blueprint; key không nằm trong repo.
+      - key: YOUTUBE_API_KEY
+        sync: false

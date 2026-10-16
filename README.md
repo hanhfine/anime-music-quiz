@@ -71,6 +71,7 @@ docker run --rm -p 8000:8000 -e YOUTUBE_API_KEY=<key> anime-quiz
 ## Deploy
 
 - Có thể deploy bằng `Dockerfile` lên Render, Railway hoặc Fly.io; chỉ cần đặt biến `YOUTUBE_API_KEY`. Render và Railway tự đặt `PORT`; với Fly.io, để `internal_port = 8000`.
+- Render: repo có sẵn `render.yaml`. Vào Dashboard → **New → Blueprint**, chọn repo, nhập `YOUTUBE_API_KEY` rồi bấm **Deploy**. Mỗi lần push lên nhánh đã chọn, Render tự build lại.
 - **Chỉ chạy 1 instance, 1 worker.** Phòng chơi nằm trong RAM: khởi động lại server là mất các phòng đang chơi. Bộ câu hỏi vẫn còn, vì nó nằm trong trình duyệt của quản trò.
 - Cần HTTPS và WebSocket; các nền tảng trên đều có sẵn.
 - Gói miễn phí thường cho server "ngủ" khi không có ai dùng, nên lần mở đầu chậm 30–60 giây. Khi chơi thật, nên dùng gói không ngủ hoặc mở trang trước vài phút.
