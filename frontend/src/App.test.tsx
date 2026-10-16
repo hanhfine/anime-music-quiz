@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import App from './App'
+import { newSet } from './lib/sets/schema'
+import { saveSet } from './lib/sets/storage'
 
 const renderAt = (url: string) =>
   render(
@@ -25,5 +27,12 @@ describe('App', () => {
   it('routes /sets to the set list', () => {
     renderAt('/sets')
     expect(screen.getByRole('heading', { name: 'Bộ câu hỏi' })).toBeInTheDocument()
+  })
+
+  it('routes /sets/:id to the editor', () => {
+    const set = saveSet(newSet('Anime OP'))
+    renderAt(`/sets/${set.id}`)
+    expect(screen.getByRole('heading', { name: 'Soạn bộ câu hỏi' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Tên bộ câu hỏi')).toHaveValue('Anime OP')
   })
 })

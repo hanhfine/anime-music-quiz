@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from 'react-router'
 import Home from './pages/Home'
+import SetEditor from './pages/SetEditor'
 import SetList from './pages/SetList'
 
 function NotFound() {
@@ -18,6 +19,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/sets" element={<SetList />} />
+      <Route path="/sets/:id" element={<SetEditor />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
