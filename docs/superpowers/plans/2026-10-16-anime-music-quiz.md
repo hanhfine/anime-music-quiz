@@ -5244,7 +5244,7 @@ describe('App', () => {
 - [ ] **Step 4: Run the test to verify it fails**
 
 Run: `cd frontend && npm test`
-Expected: FAIL. The template `App.tsx` still imports the deleted `./assets/react.svg` and `./App.css`, so Vite reports `Failed to resolve import ".../react.svg" from "src/App.tsx"`.
+Expected: FAIL. The template `App.tsx` still imports the deleted `./assets/` files and `./App.css`, so Vite reports `Failed to resolve import "./assets/hero.png" from "src/App.tsx"`.
 
 - [ ] **Step 5: Write the router shell**
 
