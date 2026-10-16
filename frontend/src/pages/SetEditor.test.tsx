@@ -100,7 +100,7 @@ describe('SetEditor', () => {
     ])
   })
 
-  it('blocks room creation until every suggestion is confirmed', async () => {
+  it('lets the host create a room as soon as some suggestions are accepted', async () => {
     mockApi({
       '/api/import': () => json({ kind: 'playlist', tracks: [TRACK_A, TRACK_B], skipped: [] }),
       '/api/anime/suggest': (url) =>
@@ -110,16 +110,70 @@ describe('SetEditor', () => {
     const { user } = renderEditor(set.id)
     await importLink(user, 'https://www.youtube.com/playlist?list=PL123')
 
-    expect(await screen.findByText('Còn 2 bài chưa xác nhận tên anime')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Chưa có bài nào sẵn sàng: hãy đặt tên anime hoặc xác nhận gợi ý'),
+    ).toBeInTheDocument()
+    await waitFor(() => expect(screen.getAllByText('Gợi ý, chưa xác nhận')).toHaveLength(2))
     expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled()
 
     await user.click(within(row(1)).getByRole('button', { name: 'Xác nhận' }))
-    expect(screen.getByText('Còn 1 bài chưa xác nhận tên anime')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeEnabled()
+    expect(screen.getByText('Phòng sẽ dùng 1/2 bài, bỏ qua 1 bài chưa xác nhận tên')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Chấp nhận tất cả gợi ý (1)' }))
-    expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeEnabled()
+    expect(screen.queryByText(/Phòng sẽ dùng/)).not.toBeInTheDocument()
     expect(screen.queryByText('Gợi ý, chưa xác nhận')).not.toBeInTheDocument()
     expect(loadSet(set.id)?.songs.every((song) => !song.needsReview)).toBe(true)
+  })
+
+  it('reports failed suggestions and retries the unnamed songs on request', async () => {
+    let available = false
+    mockApi({
+      '/api/import': () => json({ kind: 'playlist', tracks: [TRACK_A, TRACK_B], skipped: [] }),
+      '/api/anime/suggest': (url) =>
+        available
+          ? json({ candidates: [{ animeName: `Tên cho ${url.searchParams.get('title')}`, songLabel: null }] })
+          : json({ error: 'LOOKUP_UNAVAILABLE' }, 503),
+    })
+    const set = saveSet(newSet('Thử'))
+    const { user } = renderEditor(set.id)
+    await importLink(user, 'https://www.youtube.com/playlist?list=PL123')
+
+    expect(
+      await screen.findByText('Không tra được tên cho 2 bài vì AnimeThemes đang bận. Đợi một lát rồi bấm Gợi ý lại.'),
+    ).toBeInTheDocument()
+    expect(within(row(1)).getByText('Không tra được tên')).toBeInTheDocument()
+
+    available = true
+    await user.click(screen.getByRole('button', { name: 'Gợi ý lại (2)' }))
+    await waitFor(() => expect(within(row(2)).getByLabelText('Tên anime')).toHaveValue('Tên cho Bài không rõ'))
+    expect(within(row(1)).getByLabelText('Tên anime')).toHaveValue(`Tên cho ${TRACK_A.videoTitle}`)
+    expect(screen.queryByText(/Không tra được/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Gợi ý lại/ })).not.toBeInTheDocument()
+  })
+
+  it('offers to re-suggest unnamed songs of a set opened later', async () => {
+    mockApi({
+      '/api/anime/suggest': () => json({ candidates: [{ animeName: 'Bleach', songLabel: 'OP1' }] }),
+    })
+    const set = saveSet({ ...newSet('Thử'), songs: [named(TRACK_A, 'Shingeki no Kyojin'), named(TRACK_B, '')] })
+    const { user } = renderEditor(set.id)
+
+    await user.click(screen.getByRole('button', { name: 'Gợi ý lại (1)' }))
+    await waitFor(() => expect(within(row(2)).getByLabelText('Tên anime')).toHaveValue('Bleach'))
+    expect(within(row(2)).getByText('Gợi ý, chưa xác nhận')).toBeInTheDocument()
+    expect(within(row(1)).getByLabelText('Tên anime')).toHaveValue('Shingeki no Kyojin')
+  })
+
+  it('tells a failed name search apart from no results', async () => {
+    mockApi({ '/api/anime/search': () => json({ error: 'LOOKUP_UNAVAILABLE' }, 503) })
+    const set = saveSet({ ...newSet('Thử'), songs: [named(TRACK_A, 'Shingeki no Kyojin')] })
+    const { user } = renderEditor(set.id)
+
+    await user.type(within(row(1)).getByLabelText('Tìm tên anime'), 'kimetsu')
+    await user.click(within(row(1)).getByRole('button', { name: 'Tìm' }))
+    expect(await within(row(1)).findByText(/Không tra được tên anime/)).toBeInTheDocument()
+    expect(within(row(1)).queryByText('Không tìm thấy')).not.toBeInTheDocument()
   })
 
   it('lets the host pick another candidate or search for a name', async () => {

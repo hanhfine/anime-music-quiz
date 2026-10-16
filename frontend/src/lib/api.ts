@@ -72,16 +72,27 @@ export async function importUrl(url: string): Promise<ImportResult> {
   throw new ApiError(isImportError(code) ? code : 'UPSTREAM_ERROR')
 }
 
-// Gợi ý tên chỉ là phụ: mọi lỗi đều trả về danh sách rỗng.
+export const LOOKUP_ERROR_MESSAGE = 'Không tra được tên anime: AnimeThemes đang bận hoặc lỗi, hãy thử lại sau'
+
+// Tra tên thất bại (khác với tra được nhưng không có kết quả): giao diện báo lỗi và cho thử lại.
+export class LookupError extends Error {
+  constructor() {
+    super(LOOKUP_ERROR_MESSAGE)
+    this.name = 'LookupError'
+  }
+}
+
 async function fetchCandidates(path: string): Promise<Candidate[]> {
+  let body: { candidates?: unknown } | null = null
   try {
     const response = await fetch(path)
-    if (!response.ok) return []
-    const body = (await response.json()) as { candidates?: unknown }
-    return Array.isArray(body.candidates) ? (body.candidates as Candidate[]) : []
+    if (response.ok) body = (await response.json()) as { candidates?: unknown }
   } catch {
-    return []
+    // Mất mạng hoặc JSON hỏng: xử lý như server báo lỗi.
   }
+  const candidates = body?.candidates
+  if (!Array.isArray(candidates)) throw new LookupError()
+  return candidates as Candidate[]
 }
 
 export function suggestAnime(title: string): Promise<Candidate[]> {

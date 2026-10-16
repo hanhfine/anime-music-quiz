@@ -24,6 +24,8 @@ function Editor({ id }: { id: string }) {
   const [importInfo, setImportInfo] = useState<string[]>([])
   const [candidates, setCandidates] = useState<Record<string, Candidate[]>>({})
   const [suggesting, setSuggesting] = useState<ReadonlySet<string>>(new Set())
+  // Bài tra tên thất bại (AnimeThemes lỗi hoặc quá tải), khác với bài tra được mà không có kết quả.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set())
   // Dòng quản trò đã sửa tay: gợi ý đến muộn không ghi đè lên nữa.
   const touched = useRef(new Set<string>())
 
@@ -57,11 +59,17 @@ function Editor({ id }: { id: string }) {
     setSet((prev) => prev && { ...prev, songs: prev.songs.filter((song) => song.videoId !== videoId) })
 
   const suggest = async (songs: Song[]) => {
-    setSuggesting((prev) => new Set([...prev, ...songs.map((song) => song.videoId)]))
+    const ids = new Set(songs.map((song) => song.videoId))
+    setSuggesting((prev) => new Set([...prev, ...ids]))
+    setFailed((prev) => new Set([...prev].filter((videoId) => !ids.has(videoId))))
     await mapLimit(songs, SUGGEST_CONCURRENCY, async (song) => {
-      const found = await suggestAnime(song.videoTitle)
-      setCandidates((prev) => ({ ...prev, [song.videoId]: found }))
+      const found = await suggestAnime(song.videoTitle).catch(() => null)
       setSuggesting((prev) => new Set([...prev].filter((videoId) => videoId !== song.videoId)))
+      if (found === null) {
+        setFailed((prev) => new Set([...prev, song.videoId]))
+        return
+      }
+      setCandidates((prev) => ({ ...prev, [song.videoId]: found }))
       const best = found[0]
       if (best && !touched.current.has(song.videoId)) {
         patchSong(song.videoId, { animeName: best.animeName, songLabel: best.songLabel, needsReview: true })
@@ -104,6 +112,14 @@ function Editor({ id }: { id: string }) {
     } finally {
       setImporting(false)
     }
+  }
+
+  const unnamed = set.songs.filter((song) => !song.animeName.trim())
+  const failedCount = unnamed.filter((song) => failed.has(song.videoId)).length
+  // Quản trò chủ động bấm: điền gợi ý cả vào bài từng sửa tay, vì bài đó vẫn chưa có tên.
+  const resuggest = () => {
+    for (const song of unnamed) touched.current.delete(song.videoId)
+    void suggest(unnamed)
   }
 
   const reviewable = set.songs.filter((song) => song.needsReview && song.animeName.trim()).length
@@ -166,17 +182,34 @@ function Editor({ id }: { id: string }) {
         )}
       </form>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-bold">{set.songs.length} bài</h2>
-        <button
-          type="button"
-          onClick={acceptAll}
-          disabled={reviewable === 0}
-          className="rounded-lg bg-emerald-700 px-3 py-1 disabled:opacity-40"
-        >
-          Chấp nhận tất cả gợi ý ({reviewable})
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {unnamed.length > 0 && (
+            <button
+              type="button"
+              onClick={resuggest}
+              disabled={suggesting.size > 0}
+              className="rounded-lg bg-sky-700 px-3 py-1 disabled:opacity-40"
+            >
+              Gợi ý lại ({unnamed.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={acceptAll}
+            disabled={reviewable === 0}
+            className="rounded-lg bg-emerald-700 px-3 py-1 disabled:opacity-40"
+          >
+            Chấp nhận tất cả gợi ý ({reviewable})
+          </button>
+        </div>
       </div>
+      {failedCount > 0 && suggesting.size === 0 && (
+        <p role="alert" className="rounded-lg bg-amber-500/15 p-2 text-amber-200">
+          Không tra được tên cho {failedCount} bài vì AnimeThemes đang bận. Đợi một lát rồi bấm Gợi ý lại.
+        </p>
+      )}
 
       <ol className="flex flex-col gap-3">
         {set.songs.map((song, index) => (
@@ -186,6 +219,7 @@ function Editor({ id }: { id: string }) {
             index={index}
             candidates={candidates[song.videoId] ?? []}
             suggesting={suggesting.has(song.videoId)}
+            suggestFailed={failed.has(song.videoId) && !song.animeName.trim()}
             onChange={(patch) => editSong(song.videoId, patch)}
             onRemove={() => removeSong(song.videoId)}
           />

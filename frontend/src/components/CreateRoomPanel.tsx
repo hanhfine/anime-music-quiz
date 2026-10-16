@@ -3,22 +3,25 @@ import { useNavigate } from 'react-router'
 import { errorMessage, type CreateRoomAck, type RoomSettings } from '../lib/protocol'
 import { saveRoomAuth } from '../lib/roomAuth'
 import { clampRoomSettings, defaultRoomSettings, SETTING_LIMITS } from '../lib/roomSettings'
-import { roomBlocker, type Song } from '../lib/sets/schema'
+import { readySongs, roomBlocker, unreadyNote, type Song } from '../lib/sets/schema'
 import { emitAck } from '../lib/socket'
 
 type NumericSetting = Exclude<keyof RoomSettings, 'mode'>
 
 export function CreateRoomPanel({ songs }: { songs: Song[] }) {
   const navigate = useNavigate()
-  // Chỉ giữ giá trị quản trò đã sửa; còn lại theo mặc định (số câu đổi theo số bài trong bộ).
+  // Chỉ giữ giá trị quản trò đã sửa; còn lại theo mặc định (số câu đổi theo số bài sẵn sàng).
   const [custom, setCustom] = useState<Partial<Record<NumericSetting, number>>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const settings: RoomSettings = { ...defaultRoomSettings(songs.length), ...custom }
+  // Phòng chỉ dùng bài đã có tên và đã xác nhận; bài còn lại được bỏ qua, không phải chờ.
+  const ready = readySongs(songs)
+  const settings: RoomSettings = { ...defaultRoomSettings(ready.length), ...custom }
   const blocker = roomBlocker(songs)
+  const note = blocker ? null : unreadyNote(songs)
 
   const fields: { key: NumericSetting; label: string; min: number; max: number }[] = [
-    { key: 'questionCount', label: 'Số câu', min: 1, max: Math.max(1, songs.length) },
+    { key: 'questionCount', label: 'Số câu', min: 1, max: Math.max(1, ready.length) },
     { key: 'clipSec', label: 'Độ dài đoạn nhạc (giây)', min: SETTING_LIMITS.clipSec[0], max: SETTING_LIMITS.clipSec[1] },
     {
       key: 'revealSec',
@@ -38,8 +41,8 @@ export function CreateRoomPanel({ songs }: { songs: Song[] }) {
     setBusy(true)
     setError(null)
     const response = await emitAck<CreateRoomAck>('host:create_room', {
-      set: { songs },
-      settings: clampRoomSettings(settings, songs.length),
+      set: { songs: ready },
+      settings: clampRoomSettings(settings, ready.length),
     })
     if (!response.ok) {
       setError(errorMessage(response.error))
@@ -73,6 +76,7 @@ export function CreateRoomPanel({ songs }: { songs: Song[] }) {
         công bố đáp án.
       </p>
       {blocker && <p className="text-amber-300">{blocker}</p>}
+      {note && <p className="text-sm text-amber-200">{note}</p>}
       {error && (
         <p role="alert" className="rounded-lg bg-red-500/15 p-2 text-red-200">
           {error}

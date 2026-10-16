@@ -13,7 +13,7 @@ class FakeTime:
 
 
 def bucket(fake: FakeTime, rate: int = 80) -> TokenBucket:
-    return TokenBucket(rate, 60.0, clock=fake.clock, sleep=fake.sleep)
+    return TokenBucket(rate, 60.0, burst=rate, clock=fake.clock, sleep=fake.sleep)
 
 
 async def test_full_bucket_allows_a_burst_then_refuses_without_waiting():
@@ -48,3 +48,15 @@ async def test_refill_is_capped_at_capacity():
     await limiter.acquire(timeout=0)
     fake.now = 600.0
     assert [await limiter.acquire(timeout=0) for _ in range(3)] == [True, True, False]
+
+
+async def test_default_bucket_stays_under_the_animethemes_limit_in_any_minute():
+    # AnimeThemes cho 90 lượt/phút mỗi IP: kể cả lượt "bùng nổ" lúc đầu, mọi cửa sổ 60 s phải dưới mức đó.
+    fake = FakeTime()
+    limiter = TokenBucket(clock=fake.clock, sleep=fake.sleep)
+    times = []
+    for _ in range(300):
+        assert await limiter.acquire(timeout=60)
+        times.append(fake.now)
+    busiest = max(sum(1 for t in times if start <= t < start + 60) for start in times)
+    assert busiest <= 80

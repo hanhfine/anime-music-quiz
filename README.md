@@ -4,8 +4,8 @@ Web app tổ chức thử thách "nghe nhạc đoán anime". Quản trò mở ph
 
 ## Cách chơi
 
-1. Mở **Bộ câu hỏi** (`/sets`), tạo bộ mới rồi dán link YouTube: một video, hoặc một playlist (tối đa 200 bài mỗi lần). Kiểm tra tên anime app gợi ý cho từng bài. Bộ câu hỏi chỉ lưu trong trình duyệt này, nên hãy xuất ra file JSON để sao lưu hoặc mang sang máy khác.
-2. Chọn số câu, độ dài đoạn nhạc và thời gian công bố, rồi bấm **Tạo phòng**.
+1. Mở **Bộ câu hỏi** (`/sets`), tạo bộ mới rồi dán link YouTube: một video, hoặc một playlist (tối đa 200 bài mỗi lần). Kiểm tra tên anime app gợi ý cho từng bài. Nếu AnimeThemes đang bận và một số bài chưa có tên, đợi một lát rồi bấm **Gợi ý lại**. Bộ câu hỏi chỉ lưu trong trình duyệt này, nên hãy xuất ra file JSON để sao lưu hoặc mang sang máy khác.
+2. Chọn số câu, độ dài đoạn nhạc và thời gian công bố, rồi bấm **Tạo phòng**. Phòng chỉ dùng các bài đã có tên và đã xác nhận; bài chưa xong được bỏ qua, không cần chờ.
 3. Chia sẻ cửa sổ trình duyệt của tab quản trò qua Discord, **nhớ bật chia sẻ âm thanh**.
 4. Người chơi mở link `/play/<mã phòng>` hoặc quét mã QR trên màn hình, rồi nhập tên.
 5. Bấm **Đo độ trễ** (nên làm, mất khoảng 30 giây) rồi **Bắt đầu**.

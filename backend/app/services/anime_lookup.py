@@ -1,6 +1,7 @@
 """Gợi ý tên anime từ tiêu đề YouTube bằng AnimeThemes API."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 import httpx
@@ -9,8 +10,13 @@ from app.services.rate_limiter import TokenBucket
 from app.services.title_cleaner import CleanedTitle, clean_title
 
 ANIMETHEMES_URL = "https://api.animethemes.moe/anime"
-LIMIT_WAIT_SEC = 5.0
+# Trình soạn gọi 3 gợi ý song song, mỗi gợi ý vài truy vấn: chờ lượt tới 20 s thay vì báo lỗi ngay.
+LIMIT_WAIT_SEC = 20.0
 REQUEST_TIMEOUT_SEC = 8.0
+# Bị AnimeThemes từ chối (429): chờ theo Retry-After rồi thử lại, nhưng không chờ quá lâu.
+RATE_LIMIT_RETRIES = 2
+DEFAULT_RETRY_AFTER_SEC = 5.0
+MAX_RETRY_AFTER_SEC = 20.0
 SUGGEST_PAGE_SIZE = 5
 SUGGEST_LIMIT = 3
 SEARCH_LIMIT = 10
@@ -43,6 +49,13 @@ def _parse_hits(data: object) -> list[Hit]:
     return hits
 
 
+def _retry_after(response: httpx.Response) -> float:
+    try:
+        return max(0.0, float(response.headers["Retry-After"]))
+    except (KeyError, ValueError):
+        return DEFAULT_RETRY_AFTER_SEC
+
+
 def _pick_label(hit: Hit, cleaned: CleanedTitle) -> tuple[str | None, bool]:
     """Trả về (nhãn bài, tên bài có khớp tiêu đề không)."""
     parts = [part.casefold() for part in cleaned.parts]
@@ -59,17 +72,35 @@ def _pick_label(hit: Hit, cleaned: CleanedTitle) -> tuple[str | None, bool]:
 
 
 class AnimeLookup:
-    def __init__(self, client: httpx.AsyncClient, limiter: TokenBucket) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        limiter: TokenBucket,
+        *,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ) -> None:
         self.client = client
         self.limiter = limiter
+        self.sleep = sleep
         self._cache: dict[tuple[str, int], list[Hit]] = {}
+
+    async def _get_once(self, params: dict) -> httpx.Response:
+        if not await self.limiter.acquire(LIMIT_WAIT_SEC):
+            raise LookupUnavailable("rate limited")
+        return await self.client.get(ANIMETHEMES_URL, params=params, timeout=REQUEST_TIMEOUT_SEC)
+
+    async def _get(self, params: dict) -> httpx.Response:
+        for _ in range(RATE_LIMIT_RETRIES):
+            response = await self._get_once(params)
+            if response.status_code != 429 or _retry_after(response) > MAX_RETRY_AFTER_SEC:
+                return response
+            await self.sleep(_retry_after(response))
+        return await self._get_once(params)
 
     async def _search(self, query: str, size: int) -> list[Hit]:
         key = (query.casefold(), size)
         if key in self._cache:
             return self._cache[key]
-        if not await self.limiter.acquire(LIMIT_WAIT_SEC):
-            raise LookupUnavailable("rate limited")
         params = {
             "q": query,
             "include": "animethemes.song",
@@ -79,7 +110,7 @@ class AnimeLookup:
             "fields[song]": "title",
         }
         try:
-            response = await self.client.get(ANIMETHEMES_URL, params=params, timeout=REQUEST_TIMEOUT_SEC)
+            response = await self._get(params)
             response.raise_for_status()
             hits = _parse_hits(response.json())
         except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
@@ -88,13 +119,12 @@ class AnimeLookup:
         return hits
 
     async def suggest(self, title: str) -> list[dict]:
+        """Tối đa 3 tên gợi ý. Ném LookupUnavailable nếu không tra được (khác với "không tìm thấy")."""
         cleaned = clean_title(title)
         results = await asyncio.gather(
             *(self._search(part, SUGGEST_PAGE_SIZE) for part in cleaned.parts), return_exceptions=True
         )
         for result in results:
-            if isinstance(result, LookupUnavailable):
-                return []
             if isinstance(result, BaseException):
                 raise result
         ranked = []
@@ -112,10 +142,7 @@ class AnimeLookup:
         return candidates[:SUGGEST_LIMIT]
 
     async def search(self, query: str) -> list[dict]:
-        try:
-            hits = await self._search(query.strip(), SEARCH_LIMIT)
-        except LookupUnavailable:
-            return []
+        hits = await self._search(query.strip(), SEARCH_LIMIT)
         candidates: list[dict] = []
         seen: set[str] = set()
         for hit in hits:

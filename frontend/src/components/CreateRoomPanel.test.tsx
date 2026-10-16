@@ -21,9 +21,33 @@ const songs = (n: number) => Array.from({ length: n }, (_, i) => makeSong(i))
 
 describe('CreateRoomPanel', () => {
   it('explains why the room cannot be created yet', () => {
-    renderRoute(<CreateRoomPanel songs={[makeSong(1), makeSong(2, { needsReview: true })]} />)
-    expect(screen.getByText('Còn 1 bài chưa xác nhận tên anime')).toBeInTheDocument()
+    renderRoute(<CreateRoomPanel songs={[makeSong(1, { animeName: '' }), makeSong(2, { needsReview: true })]} />)
+    expect(screen.getByText('Chưa có bài nào sẵn sàng: hãy đặt tên anime hoặc xác nhận gợi ý')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Tạo phòng' })).toBeDisabled()
+  })
+
+  it('creates the room from the ready songs only, without waiting for the rest', async () => {
+    const socket = installFakeSocket()
+    socket.reply('host:create_room', { ok: true, code: 'K7M2QX', hostToken: 'tok-1' })
+    const ready = songs(3)
+    const list = [...ready, makeSong(7, { needsReview: true }), makeSong(8, { animeName: ' ' })]
+    const { user } = renderRoute(<CreateRoomPanel songs={list} />)
+    expect(
+      screen.getByText('Phòng sẽ dùng 3/5 bài, bỏ qua 1 bài chưa có tên và 1 bài chưa xác nhận tên'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Số câu')).toHaveValue(3)
+    expect(screen.getByLabelText('Số câu')).toHaveAttribute('max', '3')
+
+    await user.type(screen.getByLabelText('Số câu'), '0') // 30 câu → giới hạn lại còn 3
+    await user.click(screen.getByRole('button', { name: 'Tạo phòng' }))
+
+    expect(await screen.findByTestId('location')).toHaveTextContent('/host/K7M2QX')
+    expect(socket.payloads('host:create_room')).toEqual([
+      {
+        set: { songs: ready },
+        settings: { questionCount: 3, clipSec: 15, revealSec: 15, maxPlayers: 30, mode: 'stream' },
+      },
+    ])
   })
 
   it('defaults the question count to the smaller of 10 and the song count', () => {

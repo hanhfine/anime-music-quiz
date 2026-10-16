@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { newSet, parseQuestionSet, roomBlocker, type Song } from './schema'
+import { newSet, parseQuestionSet, readySongs, roomBlocker, unreadyNote, type Song } from './schema'
 
 const song = (overrides: Partial<Song> = {}): Song => ({
   videoId: '8OkpRK2_gVs',
@@ -89,12 +89,32 @@ describe('roomBlocker', () => {
     expect(roomBlocker(Array.from({ length: 501 }, () => song()))).toBe('Bộ câu hỏi có tối đa 500 bài')
   })
 
-  it('blocks songs without an anime name, then songs that need review', () => {
+  it('blocks only when no song is ready yet', () => {
     expect(roomBlocker([song({ animeName: '  ' }), song({ needsReview: true })])).toBe(
-      'Còn 1 bài chưa có tên anime',
+      'Chưa có bài nào sẵn sàng: hãy đặt tên anime hoặc xác nhận gợi ý',
     )
-    expect(roomBlocker([song({ needsReview: true }), song({ needsReview: true })])).toBe(
-      'Còn 2 bài chưa xác nhận tên anime',
+    expect(roomBlocker([song({ animeName: '  ' }), song({ needsReview: true }), song()])).toBeNull()
+  })
+})
+
+describe('readySongs', () => {
+  it('keeps only songs that have a confirmed anime name', () => {
+    const ready = song({ videoId: 'readyready1' })
+    expect(readySongs([song({ animeName: ' ' }), ready, song({ needsReview: true })])).toEqual([ready])
+  })
+})
+
+describe('unreadyNote', () => {
+  it('is null when every song is ready', () => {
+    expect(unreadyNote([song(), song()])).toBeNull()
+  })
+
+  it('says how many songs the room will leave out and why', () => {
+    expect(
+      unreadyNote([song(), song({ animeName: '' }), song({ needsReview: true }), song({ needsReview: true })]),
+    ).toBe('Phòng sẽ dùng 1/4 bài, bỏ qua 1 bài chưa có tên và 2 bài chưa xác nhận tên')
+    expect(unreadyNote([song(), song({ needsReview: true })])).toBe(
+      'Phòng sẽ dùng 1/2 bài, bỏ qua 1 bài chưa xác nhận tên',
     )
   })
 

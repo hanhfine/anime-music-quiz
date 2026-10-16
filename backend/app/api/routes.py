@@ -4,11 +4,16 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.services.anime_lookup import LookupUnavailable
 from app.services.youtube import YouTubeError
 
 
 class ImportIn(BaseModel):
     url: str = ""
+
+
+def _lookup_unavailable() -> JSONResponse:
+    return JSONResponse(status_code=503, content={"error": "LOOKUP_UNAVAILABLE"})
 
 
 def build_router(youtube, lookup) -> APIRouter:
@@ -29,12 +34,18 @@ def build_router(youtube, lookup) -> APIRouter:
     async def suggest(title: str = ""):
         if not title.strip():
             return {"candidates": []}
-        return {"candidates": await lookup.suggest(title)}
+        try:
+            return {"candidates": await lookup.suggest(title)}
+        except LookupUnavailable:
+            return _lookup_unavailable()
 
     @router.get("/anime/search")
     async def search(q: str = ""):
         if not q.strip():
             return JSONResponse(status_code=400, content={"error": "EMPTY_QUERY"})
-        return {"candidates": await lookup.search(q)}
+        try:
+            return {"candidates": await lookup.search(q)}
+        except LookupUnavailable:
+            return _lookup_unavailable()
 
     return router

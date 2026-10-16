@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { searchAnime, type Candidate } from '../lib/api'
+import { LOOKUP_ERROR_MESSAGE, searchAnime, type Candidate } from '../lib/api'
 import type { Song } from '../lib/sets/schema'
 
 interface Props {
@@ -7,6 +7,7 @@ interface Props {
   index: number
   candidates: Candidate[]
   suggesting: boolean
+  suggestFailed: boolean
   onChange: (patch: Partial<Song>) => void
   onRemove: () => void
 }
@@ -15,18 +16,25 @@ const formatDuration = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 
 
 const candidateText = (c: Candidate) => (c.songLabel ? `${c.animeName} · ${c.songLabel}` : c.animeName)
 
-export function SongRow({ song, index, candidates, suggesting, onChange, onRemove }: Props) {
+export function SongRow({ song, index, candidates, suggesting, suggestFailed, onChange, onRemove }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Candidate[] | null>(null)
   const [searching, setSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
   const options = results ?? candidates
 
   const search = async (event: FormEvent) => {
     event.preventDefault()
     if (!query.trim()) return
     setSearching(true)
-    setResults(await searchAnime(query.trim()))
-    setSearching(false)
+    setSearchFailed(false)
+    try {
+      setResults(await searchAnime(query.trim()))
+    } catch {
+      setSearchFailed(true)
+    } finally {
+      setSearching(false)
+    }
   }
 
   return (
@@ -101,6 +109,7 @@ export function SongRow({ song, index, candidates, suggesting, onChange, onRemov
           </>
         )}
         {suggesting && <span className="text-slate-400">Đang gợi ý…</span>}
+        {suggestFailed && <span className="text-amber-300">Không tra được tên</span>}
         {options.map((candidate) => (
           <button
             key={candidateText(candidate)}
@@ -111,7 +120,8 @@ export function SongRow({ song, index, candidates, suggesting, onChange, onRemov
             {candidateText(candidate)}
           </button>
         ))}
-        {results?.length === 0 && <span className="text-slate-400">Không tìm thấy</span>}
+        {results?.length === 0 && !searchFailed && <span className="text-slate-400">Không tìm thấy</span>}
+        {searchFailed && <span className="text-amber-300">{LOOKUP_ERROR_MESSAGE}</span>}
       </div>
 
       <form onSubmit={search} className="flex gap-2 text-sm">

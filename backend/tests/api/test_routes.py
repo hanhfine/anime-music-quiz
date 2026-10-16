@@ -3,6 +3,7 @@ import pytest
 from fastapi import FastAPI
 
 from app.api.routes import build_router
+from app.services.anime_lookup import LookupUnavailable
 from app.services.youtube import YouTubeError, parse_url
 
 IMPORT_RESULT = {
@@ -28,13 +29,18 @@ class StubYouTube:
 class StubLookup:
     def __init__(self):
         self.calls = []
+        self.unavailable = False
 
     async def suggest(self, title):
         self.calls.append(("suggest", title))
+        if self.unavailable:
+            raise LookupUnavailable("429")
         return [{"animeName": "Shingeki no Kyojin", "songLabel": "OP1 · Guren no Yumiya"}]
 
     async def search(self, q):
         self.calls.append(("search", q))
+        if self.unavailable:
+            raise LookupUnavailable("429")
         return [{"animeName": "Naruto", "songLabel": None}]
 
 
@@ -102,6 +108,15 @@ async def test_search(client, lookup):
     response = await client.get("/api/anime/search", params={"q": "naruto"})
     assert (response.status_code, response.json()) == (200, {"candidates": [{"animeName": "Naruto", "songLabel": None}]})
     assert lookup.calls == [("search", "naruto")]
+
+
+@pytest.mark.parametrize(
+    ("path", "params"), [("/api/anime/suggest", {"title": "Naruto"}), ("/api/anime/search", {"q": "Naruto"})]
+)
+async def test_lookup_outage_is_reported_as_503(client, lookup, path, params):
+    lookup.unavailable = True
+    response = await client.get(path, params=params)
+    assert (response.status_code, response.json()) == (503, {"error": "LOOKUP_UNAVAILABLE"})
 
 
 @pytest.mark.parametrize("params", [{}, {"q": ""}, {"q": "   "}])

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, describeSkipped, importUrl, searchAnime, suggestAnime } from './api'
+import { ApiError, describeSkipped, importUrl, LookupError, searchAnime, suggestAnime } from './api'
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -52,13 +52,14 @@ describe('suggestAnime / searchAnime', () => {
     expect(fetchMock).toHaveBeenLastCalledWith('/api/anime/search?q=naruto')
   })
 
-  it('returns [] on any failure', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(400, { error: 'EMPTY_QUERY' })))
-    expect(await searchAnime(' ')).toEqual([])
+  it('throws a LookupError when names cannot be looked up, so it differs from "not found"', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(503, { error: 'LOOKUP_UNAVAILABLE' })))
+    await expect(suggestAnime('x')).rejects.toThrow(LookupError)
+    await expect(searchAnime('x')).rejects.toThrow('Không tra được tên anime')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { nope: 1 })))
-    expect(await suggestAnime('x')).toEqual([])
+    await expect(suggestAnime('x')).rejects.toThrow(LookupError)
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')))
-    expect(await suggestAnime('x')).toEqual([])
+    await expect(suggestAnime('x')).rejects.toThrow(LookupError)
   })
 })
 

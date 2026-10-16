@@ -2,7 +2,7 @@ import httpx
 import pytest
 import respx
 
-from app.services.anime_lookup import ANIMETHEMES_URL, AnimeLookup
+from app.services.anime_lookup import ANIMETHEMES_URL, AnimeLookup, LookupUnavailable
 from app.services.rate_limiter import TokenBucket
 
 
@@ -25,10 +25,28 @@ def api():
         yield router
 
 
+class FakeTime:
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def clock(self) -> float:
+        return self.now
+
+    async def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
 @pytest.fixture
-async def lookup():
+def fake():
+    return FakeTime()
+
+
+@pytest.fixture
+async def lookup(fake):
     async with httpx.AsyncClient() as client:
-        yield AnimeLookup(client, TokenBucket())
+        yield AnimeLookup(client, TokenBucket(), sleep=fake.sleep)
 
 
 def route(api, query, *results, status=200):
@@ -82,35 +100,86 @@ async def test_results_are_cached_per_cleaned_query(api, lookup):
     assert called.call_count == 1
 
 
-@pytest.mark.parametrize("status", [429, 500])
-async def test_http_errors_give_no_candidates(api, lookup, status):
-    route(api, "Naruto", anime("Naruto"), status=status)
-    assert await lookup.suggest("Naruto") == []
-    assert await lookup.search("Naruto") == []
+async def test_http_errors_raise_unavailable_instead_of_an_empty_list(api, lookup):
+    route(api, "Naruto", anime("Naruto"), status=500)
+    with pytest.raises(LookupUnavailable):
+        await lookup.suggest("Naruto")
+    with pytest.raises(LookupUnavailable):
+        await lookup.search("Naruto")
 
 
-async def test_network_errors_and_bad_json_give_no_candidates(api, lookup):
+async def test_network_errors_and_bad_json_raise_unavailable(api, lookup):
     api.get(ANIMETHEMES_URL, params={"q": "Naruto"}).mock(side_effect=httpx.ConnectError("down"))
     api.get(ANIMETHEMES_URL, params={"q": "Bleach"}).respond(200, json={"unexpected": True})
-    assert await lookup.suggest("Naruto") == []
-    assert await lookup.suggest("Bleach") == []
+    with pytest.raises(LookupUnavailable):
+        await lookup.suggest("Naruto")
+    with pytest.raises(LookupUnavailable):
+        await lookup.suggest("Bleach")
+
+
+async def test_one_failed_part_makes_the_whole_suggestion_unavailable(api, lookup):
+    route(api, "Shingeki no Kyojin", SNK)
+    route(api, "Guren no Yumiya", status=500)
+    with pytest.raises(LookupUnavailable):
+        await lookup.suggest("Shingeki no Kyojin OP1 Full - Guren no Yumiya")
 
 
 async def test_failures_are_not_cached(api, lookup):
     api.get(ANIMETHEMES_URL, params={"q": "Naruto"}).mock(
         side_effect=[httpx.Response(500), httpx.Response(200, json={"anime": [anime("Naruto")]})]
     )
-    assert await lookup.suggest("Naruto") == []
+    with pytest.raises(LookupUnavailable):
+        await lookup.suggest("Naruto")
     assert await lookup.suggest("Naruto") == [{"animeName": "Naruto", "songLabel": None}]
 
 
-async def test_exhausted_rate_limit_gives_no_candidates_without_calling(api):
-    called = route(api, "Naruto", anime("Naruto"))
+def too_many(retry_after: str | None = None) -> httpx.Response:
+    return httpx.Response(429, headers={"Retry-After": retry_after} if retry_after else {})
+
+
+async def test_rate_limited_requests_wait_for_retry_after_then_retry(api, lookup, fake):
+    called = api.get(ANIMETHEMES_URL, params={"q": "Naruto"}).mock(
+        side_effect=[too_many("3"), too_many(), httpx.Response(200, json={"anime": [anime("Naruto")]})]
+    )
+    assert await lookup.suggest("Naruto") == [{"animeName": "Naruto", "songLabel": None}]
+    assert called.call_count == 3
+    assert fake.sleeps == [3.0, 5.0]  # không có Retry-After thì chờ 5 s
+
+
+async def test_gives_up_after_two_retries(api, lookup, fake):
+    called = api.get(ANIMETHEMES_URL, params={"q": "Naruto"}).mock(side_effect=[too_many("1")] * 3)
+    with pytest.raises(LookupUnavailable):
+        await lookup.suggest("Naruto")
+    assert called.call_count == 3
+    assert fake.sleeps == [1.0, 1.0]
+
+
+async def test_does_not_wait_when_retry_after_is_too_long(api, lookup, fake):
+    called = api.get(ANIMETHEMES_URL, params={"q": "Naruto"}).mock(side_effect=[too_many("60")])
+    with pytest.raises(LookupUnavailable):
+        await lookup.suggest("Naruto")
+    assert called.call_count == 1
+    assert fake.sleeps == []
+
+
+async def test_waits_for_the_shared_limiter_instead_of_failing(api, fake):
+    route(api, "Naruto", anime("Naruto"))
+    limiter = TokenBucket(4, 60.0, burst=1, clock=fake.clock, sleep=fake.sleep)
+    await limiter.acquire(timeout=0)
     async with httpx.AsyncClient() as client:
-        limiter = TokenBucket(1, 60.0)
-        await limiter.acquire(timeout=0)
-        lookup = AnimeLookup(client, limiter)
-        assert await lookup.suggest("Naruto") == []
+        lookup = AnimeLookup(client, limiter, sleep=fake.sleep)
+        assert await lookup.suggest("Naruto") == [{"animeName": "Naruto", "songLabel": None}]
+    assert fake.now == 15.0  # lượt kế tiếp sau 60 s / 4
+
+
+async def test_unavailable_without_calling_when_the_limiter_wait_is_too_long(api, fake):
+    called = route(api, "Naruto", anime("Naruto"))
+    limiter = TokenBucket(1, 60.0, burst=1, clock=fake.clock, sleep=fake.sleep)
+    await limiter.acquire(timeout=0)
+    async with httpx.AsyncClient() as client:
+        lookup = AnimeLookup(client, limiter, sleep=fake.sleep)
+        with pytest.raises(LookupUnavailable):
+            await lookup.suggest("Naruto")
     assert called.call_count == 0
 
 

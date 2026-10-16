@@ -82,13 +82,27 @@ export function parseQuestionSet(data: unknown): ParseResult {
   return { ok: true, set: { version: SET_VERSION, id, name, updatedAt, songs: parsed } }
 }
 
-// Lý do chưa tạo phòng được (server kiểm tra lại đúng các điều kiện này), hoặc null.
+const isNamed = (song: Song) => song.animeName.trim() !== ''
+
+// Bài dùng được khi tạo phòng: đã có tên anime và đã xác nhận (server kiểm tra lại đúng điều kiện này).
+export const readySongs = (songs: Song[]): Song[] => songs.filter((song) => isNamed(song) && !song.needsReview)
+
+// Lý do chưa tạo phòng được, hoặc null. Bài chưa sẵn sàng không chặn: phòng chỉ dùng các bài đã sẵn sàng.
 export function roomBlocker(songs: Song[]): string | null {
   if (songs.length === 0) return 'Bộ câu hỏi chưa có bài nào'
   if (songs.length > MAX_SONGS) return `Bộ câu hỏi có tối đa ${MAX_SONGS} bài`
-  const unnamed = songs.filter((song) => !song.animeName.trim()).length
-  if (unnamed > 0) return `Còn ${unnamed} bài chưa có tên anime`
-  const unreviewed = songs.filter((song) => song.needsReview).length
-  if (unreviewed > 0) return `Còn ${unreviewed} bài chưa xác nhận tên anime`
+  if (readySongs(songs).length === 0) return 'Chưa có bài nào sẵn sàng: hãy đặt tên anime hoặc xác nhận gợi ý'
   return null
+}
+
+// Cho quản trò biết phòng sẽ bỏ qua bao nhiêu bài, hoặc null nếu dùng hết.
+export function unreadyNote(songs: Song[]): string | null {
+  const unnamed = songs.filter((song) => !isNamed(song)).length
+  const unreviewed = songs.filter((song) => isNamed(song) && song.needsReview).length
+  if (unnamed + unreviewed === 0) return null
+  const reasons = [
+    unnamed > 0 ? `${unnamed} bài chưa có tên` : '',
+    unreviewed > 0 ? `${unreviewed} bài chưa xác nhận tên` : '',
+  ].filter(Boolean)
+  return `Phòng sẽ dùng ${songs.length - unnamed - unreviewed}/${songs.length} bài, bỏ qua ${reasons.join(' và ')}`
 }
