@@ -1,4 +1,4 @@
-import type { HostRound, HostSnapshot } from '../lib/protocol'
+import type { HostRound, HostSnapshot, PlayerRound, PlayerSnapshot } from '../lib/protocol'
 
 // Snapshot đầy đủ trường (trường không áp dụng là null), sửa bằng patch cho từng test.
 export function hostRound(patch: Partial<HostRound> = {}): HostRound {
@@ -30,6 +30,33 @@ export function hostSnapshot(patch: Partial<HostSnapshot> = {}): HostSnapshot {
     round: null,
     leaderboard: [],
     notice: null,
+    ...patch,
+  }
+}
+
+export function playerRound(patch: Partial<PlayerRound> = {}): PlayerRound {
+  return {
+    index: 0,
+    total: 2,
+    options: null,
+    deadline: null,
+    myAnswer: null,
+    result: null,
+    ...patch,
+  }
+}
+
+export function playerSnapshot(patch: Partial<PlayerSnapshot> = {}): PlayerSnapshot {
+  return {
+    code: 'K7M2QX',
+    phase: 'LOBBY',
+    serverNow: Date.now(),
+    hostOnline: true,
+    playerCount: 2,
+    me: { id: 'p1', name: 'Mai', score: 0, rank: 1, delayMs: 0, calibrated: false },
+    calib: null,
+    round: null,
+    leaderboardTop: null,
     ...patch,
   }
 }
