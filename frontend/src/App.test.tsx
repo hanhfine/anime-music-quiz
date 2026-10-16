@@ -1,9 +1,14 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import App from './App'
+import { setPlayerFactoryForTests } from './audio/createPlayer'
+import { saveRoomAuth } from './lib/roomAuth'
 import { newSet } from './lib/sets/schema'
 import { saveSet } from './lib/sets/storage'
+import { setSocketForTests } from './lib/socket'
+import { installFakePlayer } from './test/fakePlayer'
+import { installFakeSocket } from './test/fakeSocket'
 
 const renderAt = (url: string) =>
   render(
@@ -11,6 +16,11 @@ const renderAt = (url: string) =>
       <App />
     </MemoryRouter>,
   )
+
+afterEach(() => {
+  setSocketForTests(null)
+  setPlayerFactoryForTests(null)
+})
 
 describe('App', () => {
   it('shows a not-found page with a link home for unknown paths', () => {
@@ -34,5 +44,14 @@ describe('App', () => {
     renderAt(`/sets/${set.id}`)
     expect(screen.getByRole('heading', { name: 'Soạn bộ câu hỏi' })).toBeInTheDocument()
     expect(screen.getByLabelText('Tên bộ câu hỏi')).toHaveValue('Anime OP')
+  })
+
+  it('routes /host/:code to the host screen', () => {
+    saveRoomAuth('K7M2QX', { hostToken: 'host-token' })
+    installFakeSocket()
+    installFakePlayer()
+    renderAt('/host/K7M2QX')
+    expect(screen.getByText('Phòng K7M2QX')).toBeInTheDocument()
+    expect(screen.getByText('Đang kết nối tới phòng…')).toBeInTheDocument()
   })
 })
