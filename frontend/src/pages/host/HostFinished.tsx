@@ -1,5 +1,8 @@
+import { Callout } from '../../components/Callout'
 import { Leaderboard } from '../../components/Leaderboard'
 import { Podium } from '../../components/Podium'
+import { PopButton } from '../../components/PopButton'
+import { PopChip } from '../../components/PopPanel'
 import type { HostSnapshot } from '../../lib/protocol'
 import { useHostCommand } from './useHostCommand'
 
@@ -7,26 +10,19 @@ export function HostFinished({ snapshot, onClose }: { snapshot: HostSnapshot; on
   const { run, error, busy } = useHostCommand()
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-8 p-8">
-      <h1 className="text-center text-5xl font-black">Kết quả chung cuộc 🏆</h1>
+      <PopChip as="h1" className="self-center text-5xl">
+        Kết quả chung cuộc 🏆
+      </PopChip>
       <Podium rows={snapshot.leaderboard} />
       <Leaderboard rows={snapshot.leaderboard} />
-      {error && (
-        <p role="alert" className="rounded-lg bg-red-500/15 p-2 text-red-200">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-center gap-4">
-        <button
-          type="button"
-          onClick={() => void run('host:play_again')}
-          disabled={busy}
-          className="rounded-xl bg-emerald-600 px-6 py-3 text-2xl font-bold disabled:opacity-40"
-        >
+      {error && <Callout tone="error">{error}</Callout>}
+      <div className="flex justify-center gap-6">
+        <PopButton size="lg" onClick={() => void run('host:play_again')} disabled={busy}>
           Chơi lại
-        </button>
-        <button type="button" onClick={onClose} className="rounded-xl bg-red-700 px-6 py-3 text-2xl font-bold">
+        </PopButton>
+        <PopButton variant="danger" size="lg" onClick={onClose}>
           Đóng phòng
-        </button>
+        </PopButton>
       </div>
     </div>
   )

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Burst } from '../../components/Burst'
+import { PopChip } from '../../components/PopPanel'
 import { beep } from '../../lib/beep'
 import { CALIB_ROUNDS, type HostCalib, type HostPlayer } from '../../lib/protocol'
 import { emitAck } from '../../lib/socket'
@@ -28,22 +30,33 @@ export function HostCalibration({ calib, players }: { calib: HostCalib; players:
 
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center gap-8 text-center">
-      <p className="text-3xl text-slate-400">
+      <PopChip as="p" className="text-4xl">
         Đo độ trễ · Lượt {round}/{CALIB_ROUNDS}
-      </p>
+      </PopChip>
       {showFlash ? (
-        <p className="text-[12rem] leading-none font-black text-amber-400">BẤM!</p>
+        <div className="relative grid place-items-center">
+          <Burst className="absolute size-[34rem] fill-pop-red motion-safe:animate-slam" />
+          <p className="relative text-[12rem] leading-none font-black text-pop-lime italic [text-shadow:8px_8px_0_var(--color-pop-ink)] motion-safe:animate-slam">
+            BẤM!
+          </p>
+        </div>
       ) : step === null ? (
-        <p className="text-6xl font-bold text-slate-300">Chuẩn bị…</p>
+        <p className="text-6xl font-black text-neutral-300 italic">Chuẩn bị…</p>
       ) : (
-        <p className="text-[12rem] leading-none font-black">{step}</p>
+        // key={step}: mỗi số là một phần tử mới nên lần nào cũng "đập" vào.
+        <p
+          key={step}
+          className="text-[12rem] leading-none font-black italic [text-shadow:8px_8px_0_var(--color-pop-red)] motion-safe:animate-slam"
+        >
+          {step}
+        </p>
       )}
       {showFlash && (
-        <p className="text-3xl">
+        <p className="relative text-3xl font-semibold">
           {calib.tappedCount}/{onlineCount} người đã bấm
         </p>
       )}
-      <p className="max-w-2xl text-xl text-slate-400">
+      <p className="relative max-w-2xl text-xl text-neutral-400">
         Người chơi bấm nút trên điện thoại ngay khi thấy hoặc nghe BẤM! trên stream.
       </p>
     </div>
