@@ -100,6 +100,12 @@ describe('HostScreen', () => {
     expect(players[0].stopCount).toBe(1)
   })
 
+  it('centers the covered clip where the disc will sit', () => {
+    const { push } = setup()
+    push({ phase: 'PREPARING', round: hostRound() })
+    expect(screen.getByTestId('stage')).toHaveClass('left-[calc(50%-160px)]', 'top-[calc(50%-90px)]')
+  })
+
   it('applies the saved volume and remembers changes', () => {
     localStorage.setItem('animequiz:volume', '35')
     const { players } = setup()

@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router'
 import { useAudioPlayer } from '../audio/useAudioPlayer'
 import { useHostPlayback } from '../audio/useHostPlayback'
 import { loadVolume, saveVolume } from '../audio/volume'
+import { Callout } from '../components/Callout'
+import { PopButton } from '../components/PopButton'
+import { PopChip } from '../components/PopPanel'
 import { CLOSED_MESSAGES, errorMessage, type HostSnapshot, type Notice } from '../lib/protocol'
 import { clearRoomAuth, loadRoomAuth } from '../lib/roomAuth'
 import { emitAck } from '../lib/socket'
@@ -21,10 +24,11 @@ const NOTICE_MESSAGES: Record<Notice, string> = {
 type StageLayout = 'hidden' | 'small' | 'large'
 
 // Khung nhạc luôn nằm một chỗ trong DOM; chỉ đổi CSS để iframe YouTube không bị tải lại.
+// Đặt giữa bằng calc thay vì translate: phần tử có transform làm lớp phủ mất background-attachment: fixed.
 const STAGE_CLASSES: Record<StageLayout, string> = {
-  hidden: 'invisible right-6 bottom-6 h-[180px] w-[320px]',
-  small: 'right-6 bottom-6 h-[180px] w-[320px]',
-  large: 'top-20 left-6 aspect-video w-[56vw]',
+  hidden: 'invisible left-[calc(50%-160px)] top-[calc(50%-90px)] h-[180px] w-[320px]',
+  small: 'left-[calc(50%-160px)] top-[calc(50%-90px)] h-[180px] w-[320px]',
+  large: 'left-6 top-20 h-[31.5vw] w-[56vw] border-4 border-pop-paper shadow-[10px_10px_0_var(--color-pop-red)]',
 }
 
 function stageLayout(snapshot: HostSnapshot | null): StageLayout {
@@ -94,10 +98,10 @@ function Host({ code }: { code: string }) {
   const layout = stageLayout(snapshot)
 
   return (
-    <main className="min-h-screen">
-      <header className="flex items-center gap-6 border-b border-slate-800 px-6 py-3">
-        <span className="font-mono text-xl font-bold">Phòng {code}</span>
-        <label className="ml-auto flex items-center gap-2 text-slate-300">
+    <main className="halftone-strong min-h-dvh">
+      <header className="flex items-center gap-6 px-6 py-3">
+        <PopChip className="text-2xl tabular-nums">Phòng {code}</PopChip>
+        <label className="ml-auto flex items-center gap-2 font-semibold text-neutral-300">
           <span aria-hidden="true">🔊</span> Âm lượng
           <input
             type="range"
@@ -105,27 +109,24 @@ function Host({ code }: { code: string }) {
             max={100}
             value={volume}
             onChange={(event) => changeVolume(Number(event.target.value))}
+            className="accent-pop-lime"
           />
         </label>
         {snapshot?.phase !== 'FINISHED' && (
-          <button
-            type="button"
-            onClick={() => void closeRoom()}
-            className="rounded-lg bg-slate-800 px-3 py-1 text-slate-300 hover:bg-red-800"
-          >
+          <PopButton variant="secondary" size="sm" onClick={() => void closeRoom()}>
             Đóng phòng
-          </button>
+          </PopButton>
         )}
       </header>
       {error && (
-        <p role="alert" className="m-4 rounded-lg bg-red-500/15 p-2 text-red-200">
+        <Callout tone="error" className="mx-6 my-2">
           {error}
-        </p>
+        </Callout>
       )}
       {snapshot?.notice && (
         <p
           role="status"
-          className="fixed top-16 left-1/2 z-20 -translate-x-1/2 rounded-full bg-amber-400 px-6 py-2 text-lg font-bold text-slate-950"
+          className="fixed top-16 left-1/2 z-30 -translate-x-1/2 -skew-x-12 bg-pop-red px-6 py-2 text-2xl font-black text-pop-paper italic shadow-[5px_5px_0_var(--color-pop-ink)]"
         >
           {NOTICE_MESSAGES[snapshot.notice]}
         </p>
@@ -134,25 +135,24 @@ function Host({ code }: { code: string }) {
       {snapshot ? (
         <PhaseView snapshot={snapshot} offset={offset} onClose={() => void closeRoom()} />
       ) : (
-        <p className="p-8 text-2xl text-slate-400">Đang kết nối tới phòng…</p>
+        <p className="p-8 text-2xl font-semibold text-neutral-400">Đang kết nối tới phòng…</p>
       )}
 
       <div
         data-testid="stage"
         data-layout={layout}
-        className={`fixed z-10 overflow-hidden rounded-2xl bg-black shadow-2xl transition-all duration-700 ${STAGE_CLASSES[layout]}`}
+        className={`fixed z-10 overflow-hidden bg-pop-ink motion-safe:transition-all motion-safe:duration-700 ${STAGE_CLASSES[layout]}`}
       >
         {/* Player tự gắn phần tử của nó vào đây; React không render con nào bên trong. */}
         <div ref={stageRef} className="h-full w-full" />
+        {/* Cùng nền halftone-strong với trang: góc khung lòi ra ngoài đĩa vẫn gần như không thấy. */}
         <div
           data-testid="stage-cover"
           aria-hidden="true"
-          className={`absolute inset-0 flex items-center justify-center bg-slate-900 transition-opacity duration-700 ${
+          className={`absolute inset-0 halftone-strong motion-safe:transition-opacity motion-safe:duration-700 ${
             layout === 'large' ? 'pointer-events-none opacity-0' : ''
           }`}
-        >
-          <span className="animate-spin text-7xl">💿</span>
-        </div>
+        />
       </div>
     </main>
   )
