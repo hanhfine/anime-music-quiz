@@ -1,4 +1,4 @@
-"""Token bucket dùng chung toàn server để giới hạn lượt gọi AnimeThemes."""
+"""Token bucket giới hạn lượt gọi API bên ngoài (AnimeThemes, AniList)."""
 
 import asyncio
 import time

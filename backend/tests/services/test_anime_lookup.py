@@ -6,10 +6,14 @@ from app.services.anime_lookup import ANIMETHEMES_URL, AnimeLookup, LookupUnavai
 from app.services.rate_limiter import TokenBucket
 
 
-def anime(name, *themes):
+def anime(name, *themes, anilist=None):
+    resources = [{"site": "MyAnimeList", "external_id": 1}]
+    if anilist is not None:
+        resources.append({"site": "AniList", "external_id": anilist})
     return {
         "name": name,
         "animethemes": [{"slug": slug, "song": {"title": title} if title else None} for slug, title in themes],
+        "resources": resources,
     }
 
 
@@ -87,10 +91,11 @@ async def test_request_uses_sparse_fields(api, lookup):
     called = route(api, "Gundam", anime("Gundam"))
     await lookup.suggest("Gundam")
     params = called.calls.last.request.url.params
-    assert params["include"] == "animethemes.song"
+    assert params["include"] == "animethemes.song,resources"
     assert params["fields[anime]"] == "name"
     assert params["fields[animetheme]"] == "slug"
     assert params["fields[song]"] == "title"
+    assert params["fields[resource]"] == "site,external_id"
 
 
 async def test_results_are_cached_per_cleaned_query(api, lookup):
@@ -188,3 +193,55 @@ async def test_search_returns_up_to_ten_names_without_labels(api, lookup):
     result = await lookup.search("Gundam")
     assert len(result) == 10
     assert result[0] == {"animeName": "Gundam 0", "songLabel": None}
+
+
+class FakeTitles:
+    """Thay AniListTitles: trả tên tiếng Anh có sẵn và ghi lại các lượt hỏi."""
+
+    def __init__(self, names: dict[int, str]) -> None:
+        self.names = names
+        self.calls: list[list[int]] = []
+
+    async def english(self, ids: list[int]) -> dict[int, str]:
+        self.calls.append(ids)
+        return {anilist_id: self.names[anilist_id] for anilist_id in ids if anilist_id in self.names}
+
+
+@pytest.fixture
+async def titled():
+    titles = FakeTitles({16498: "Attack on Titan", 110277: "Attack on Titan Final Season", 20: "Naruto"})
+    async with httpx.AsyncClient() as client:
+        yield AnimeLookup(client, TokenBucket(), titles=titles), titles
+
+
+async def test_suggest_adds_english_names_with_one_anilist_query(api, titled):
+    lookup, titles = titled
+    route(
+        api,
+        "Shingeki no Kyojin",
+        anime("Shingeki no Kyojin: The Final Season", ("OP1", "My War"), anilist=110277),
+        anime("Shingeki no Kyojin", ("OP1", "Guren no Yumiya"), anilist=16498),
+        anime("Shingeki no Kyojin Movie 1", anilist=20958),
+    )
+    assert await lookup.suggest("Shingeki no Kyojin OP1") == [
+        {"animeName": "Shingeki no Kyojin: The Final Season (Attack on Titan Final Season)", "songLabel": "OP1 · My War"},
+        {"animeName": "Shingeki no Kyojin (Attack on Titan)", "songLabel": "OP1 · Guren no Yumiya"},
+        {"animeName": "Shingeki no Kyojin Movie 1", "songLabel": "OP1"},
+    ]
+    assert titles.calls == [[110277, 16498, 20958]]
+
+
+async def test_search_adds_english_names(api, titled):
+    lookup, _ = titled
+    route(api, "Naruto", anime("Naruto", anilist=20), anime("Shingeki no Kyojin", anilist=16498))
+    assert await lookup.search("Naruto") == [
+        {"animeName": "Naruto", "songLabel": None},
+        {"animeName": "Shingeki no Kyojin (Attack on Titan)", "songLabel": None},
+    ]
+
+
+async def test_skips_anilist_when_no_hit_has_an_anilist_id(api, titled):
+    lookup, titles = titled
+    route(api, "Gundam", anime("Gundam"))
+    assert await lookup.suggest("Gundam") == [{"animeName": "Gundam", "songLabel": None}]
+    assert titles.calls == []

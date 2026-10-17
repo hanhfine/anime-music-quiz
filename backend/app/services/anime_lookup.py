@@ -1,4 +1,4 @@
-"""Gợi ý tên anime từ tiêu đề YouTube bằng AnimeThemes API."""
+"""Gợi ý tên anime từ tiêu đề YouTube bằng AnimeThemes API, kèm tên tiếng Anh từ AniList."""
 
 import asyncio
 from collections.abc import Awaitable, Callable
@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.services.anilist import AniListTitles, bilingual_name
 from app.services.rate_limiter import TokenBucket
 from app.services.title_cleaner import CleanedTitle, clean_title
 
@@ -36,6 +37,7 @@ class Theme:
 class Hit:
     name: str
     themes: tuple[Theme, ...]
+    anilist_id: int | None = None
 
 
 def _parse_hits(data: object) -> list[Hit]:
@@ -45,7 +47,10 @@ def _parse_hits(data: object) -> list[Hit]:
             Theme(slug=theme["slug"], song_title=(theme.get("song") or {}).get("title"))
             for theme in item.get("animethemes") or []
         )
-        hits.append(Hit(name=item["name"], themes=themes))
+        anilist_id = next(
+            (res.get("external_id") for res in item.get("resources") or [] if res.get("site") == "AniList"), None
+        )
+        hits.append(Hit(name=item["name"], themes=themes, anilist_id=anilist_id if type(anilist_id) is int else None))
     return hits
 
 
@@ -78,10 +83,12 @@ class AnimeLookup:
         limiter: TokenBucket,
         *,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        titles: AniListTitles | None = None,
     ) -> None:
         self.client = client
         self.limiter = limiter
         self.sleep = sleep
+        self.titles = titles
         self._cache: dict[tuple[str, int], list[Hit]] = {}
 
     async def _get_once(self, params: dict) -> httpx.Response:
@@ -103,11 +110,12 @@ class AnimeLookup:
             return self._cache[key]
         params = {
             "q": query,
-            "include": "animethemes.song",
+            "include": "animethemes.song,resources",
             "page[size]": size,
             "fields[anime]": "name",
             "fields[animetheme]": "slug",
             "fields[song]": "title",
+            "fields[resource]": "site,external_id",
         }
         try:
             response = await self._get(params)
@@ -117,6 +125,15 @@ class AnimeLookup:
             raise LookupUnavailable(str(exc)) from exc
         self._cache[key] = hits
         return hits
+
+    async def _named(self, picked: list[tuple[Hit, str | None]]) -> list[dict]:
+        """Ghép tên tiếng Anh vào tên romaji bằng một lượt hỏi AniList; AniList không trả lời thì giữ romaji."""
+        ids = [hit.anilist_id for hit, _ in picked if hit.anilist_id is not None]
+        english = await self.titles.english(ids) if self.titles and ids else {}
+        return [
+            {"animeName": bilingual_name(hit.name, english.get(hit.anilist_id)), "songLabel": label}
+            for hit, label in picked
+        ]
 
     async def suggest(self, title: str) -> list[dict]:
         """Tối đa 3 tên gợi ý. Ném LookupUnavailable nếu không tra được (khác với "không tìm thấy")."""
@@ -131,22 +148,22 @@ class AnimeLookup:
         for part_index, hits in enumerate(results):
             for hit_index, hit in enumerate(hits):
                 label, song_match = _pick_label(hit, cleaned)
-                ranked.append(((not song_match, part_index, hit_index), hit.name, label))
+                ranked.append(((not song_match, part_index, hit_index), hit, label))
         ranked.sort(key=lambda row: row[0])
-        candidates: list[dict] = []
+        picked: list[tuple[Hit, str | None]] = []
         seen: set[str] = set()
-        for _, name, label in ranked:
-            if name.casefold() not in seen:
-                seen.add(name.casefold())
-                candidates.append({"animeName": name, "songLabel": label})
-        return candidates[:SUGGEST_LIMIT]
+        for _, hit, label in ranked:
+            if hit.name.casefold() not in seen:
+                seen.add(hit.name.casefold())
+                picked.append((hit, label))
+        return await self._named(picked[:SUGGEST_LIMIT])
 
     async def search(self, query: str) -> list[dict]:
         hits = await self._search(query.strip(), SEARCH_LIMIT)
-        candidates: list[dict] = []
+        picked: list[tuple[Hit, str | None]] = []
         seen: set[str] = set()
         for hit in hits:
             if hit.name.casefold() not in seen:
                 seen.add(hit.name.casefold())
-                candidates.append({"animeName": hit.name, "songLabel": None})
-        return candidates[:SEARCH_LIMIT]
+                picked.append((hit, None))
+        return await self._named(picked[:SEARCH_LIMIT])

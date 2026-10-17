@@ -15,6 +15,7 @@ from app.config import Config, load_config
 from app.data.popular import load_popular_anime
 from app.game.models import Timing
 from app.game.room_manager import RoomManager
+from app.services.anilist import AniListTitles
 from app.services.anime_lookup import AnimeLookup
 from app.services.rate_limiter import TokenBucket
 from app.services.youtube import YouTubeService
@@ -46,7 +47,8 @@ def create_app(
     config = config or load_config()
     client = httpx.AsyncClient()
     youtube = YouTubeService(config.youtube_api_key, config.youtube_region, client)
-    lookup = AnimeLookup(client, TokenBucket())
+    # AniList cho 30 lượt/phút; đặt 25 để chừa khoảng an toàn.
+    lookup = AnimeLookup(client, TokenBucket(), titles=AniListTitles(client, TokenBucket(25, burst=5)))
     game = GameServer(RoomManager(load_popular_anime(), timing=timing))
 
     @asynccontextmanager
