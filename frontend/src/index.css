@@ -13,6 +13,7 @@
   --animate-note-fly: note-fly 2.2s ease-out infinite;
   --animate-bolt-flash: bolt-flash 1.6s steps(1) infinite;
   --animate-slam: slam 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+  --animate-blink: blink 0.8s steps(1) infinite;
 
   @keyframes disc-spin {
     to {
@@ -59,6 +60,13 @@
     to {
       transform: scale(1) rotate(0);
       opacity: 1;
+    }
+  }
+
+  /* steps(1): nửa đầu sáng, nửa sau mờ. */
+  @keyframes blink {
+    50% {
+      opacity: 0.35;
     }
   }
 }

@@ -99,7 +99,16 @@ function PhaseView({ snapshot, offset }: { snapshot: PlayerSnapshot; offset: num
     case 'PREPARING':
       return round && <PlayerPreparing round={round} />
     case 'ANSWERING':
-      return round && <PlayerAnswering key={`${round.index}:${round.deadline}`} round={round} offset={offset} />
+      return (
+        round && (
+          <PlayerAnswering
+            key={`${round.index}:${round.deadline}`}
+            round={round}
+            offset={offset}
+            team={myTeam(snapshot)}
+          />
+        )
+      )
     case 'REVEAL':
       return round && <PlayerReveal snapshot={snapshot} round={round} />
     case 'FINISHED':

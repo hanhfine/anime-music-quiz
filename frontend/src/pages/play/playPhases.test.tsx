@@ -196,6 +196,66 @@ describe('PlayerRound', () => {
     render(<PlayerReveal snapshot={playerSnapshot({ phase: 'REVEAL' })} round={playerRound({ options, result })} />)
     expect(screen.getByText('⌛ Hết giờ, đáp án là A · Shingeki no Kyojin')).toBeInTheDocument()
   })
+
+  it('lets a team member change their vote until time runs out', async () => {
+    const socket = installFakeSocket()
+    const round = playerRound({ options, deadline: Date.now() + 15_000, teamVotes: [1, 0, 0, 0] })
+    render(<PlayerAnswering round={round} offset={0} team={teams[0]} />)
+    expect(screen.getByText('Đội Đỏ · 1/2 đã bỏ phiếu')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'A: Shingeki no Kyojin' })).toHaveTextContent('1 phiếu')
+
+    await userEvent.click(screen.getByRole('button', { name: 'A: Shingeki no Kyojin' }))
+    await userEvent.click(screen.getByRole('button', { name: 'C: One Piece' }))
+    await userEvent.click(screen.getByRole('button', { name: 'C: One Piece' }))
+    expect(socket.payloads('player:answer')).toEqual([
+      { roundIndex: 0, optionIndex: 0 },
+      { roundIndex: 0, optionIndex: 2 },
+    ])
+    expect(screen.getByRole('button', { name: 'C: One Piece' })).toHaveAttribute('data-state', 'chosen')
+    expect(screen.getByRole('button', { name: 'A: Shingeki no Kyojin' })).toHaveAttribute('data-state', 'idle')
+    for (const button of screen.getAllByRole('button')) expect(button).toBeEnabled()
+  })
+
+  it('shows the vote the server already has', () => {
+    const round = playerRound({ options, deadline: Date.now() + 9000, myAnswer: 3, teamVotes: [0, 0, 0, 1] })
+    render(<PlayerAnswering round={round} offset={0} team={teams[0]} />)
+    expect(screen.getByRole('button', { name: 'D: Bleach' })).toHaveAttribute('data-state', 'chosen')
+    expect(screen.getByRole('button', { name: 'A: Shingeki no Kyojin' })).toBeEnabled()
+  })
+
+  it('warns the team while its vote is tied', () => {
+    const round = playerRound({ options, deadline: Date.now() + 9000, myAnswer: 0, teamVotes: [1, 1, 0, 0] })
+    render(<PlayerAnswering round={round} offset={0} team={teams[0]} />)
+    expect(screen.getByRole('status')).toHaveTextContent('ĐANG HÒA!')
+    expect(screen.queryByText(/đã bỏ phiếu/)).not.toBeInTheDocument()
+  })
+
+  // Mai bầu B (myAnswer 1); dấu ✕ đặt trên ô đội chốt, không phải ô Mai bầu.
+  it.each([
+    {
+      team: { option: 0, tied: false, correct: true, gained: 900 },
+      line: 'ĐỘI ĐÚNG! +900',
+      states: ['correct', 'dimmed', 'dimmed', 'dimmed'],
+    },
+    {
+      team: { option: null, tied: true, correct: false, gained: 0 },
+      line: 'HÒA PHIẾU · 0 ĐIỂM',
+      states: ['correct', 'dimmed', 'dimmed', 'dimmed'],
+    },
+    {
+      team: { option: 2, tied: false, correct: false, gained: 0 },
+      line: 'ĐỘI SAI',
+      states: ['correct', 'dimmed', 'wrong', 'dimmed'],
+    },
+  ])('shows the team result: $line', ({ team, line, states }) => {
+    const round = playerRound({ options, myAnswer: 1, result: { ...result, team } })
+    const { container } = render(
+      <PlayerReveal snapshot={playerSnapshot({ phase: 'REVEAL', me: teamMe, teams })} round={round} />,
+    )
+    expect(screen.getByText(line)).toBeInTheDocument()
+    const tiles = [...container.querySelectorAll('[data-state]')].map((tile) => tile.getAttribute('data-state'))
+    expect(tiles).toEqual(states)
+  })
 })
 
 describe('PlayerFinished', () => {
