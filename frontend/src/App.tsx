@@ -1,4 +1,5 @@
 import { Link, Route, Routes } from 'react-router'
+import { PopChip } from './components/PopPanel'
 import HostScreen from './pages/HostScreen'
 import Home from './pages/Home'
 import PlayScreen from './pages/PlayScreen'
@@ -7,9 +8,11 @@ import SetList from './pages/SetList'
 
 function NotFound() {
   return (
-    <main className="mx-auto max-w-md p-8 text-center">
-      <h1 className="text-2xl font-bold">Không tìm thấy trang</h1>
-      <Link className="mt-4 inline-block text-sky-400 underline" to="/">
+    <main className="mx-auto flex max-w-md flex-col items-center gap-6 p-8 pt-16 text-center">
+      <PopChip as="h1" className="text-3xl">
+        Không tìm thấy trang
+      </PopChip>
+      <Link className="font-semibold text-pop-lime underline" to="/">
         Về trang chủ
       </Link>
     </main>
