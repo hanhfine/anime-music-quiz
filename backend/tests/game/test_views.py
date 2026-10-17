@@ -3,8 +3,12 @@ import json
 from app.game.views import host_view, player_view
 from tests.factories import make_room
 
-HOST_KEYS = {"code", "phase", "mode", "settings", "serverNow", "players", "calib", "round", "leaderboard", "notice"}
-PLAYER_KEYS = {"code", "phase", "serverNow", "hostOnline", "playerCount", "me", "calib", "round", "leaderboardTop"}
+HOST_KEYS = {
+    "code", "phase", "mode", "settings", "serverNow", "players", "teams", "calib", "round", "leaderboard", "notice",
+}
+PLAYER_KEYS = {
+    "code", "phase", "serverNow", "hostOnline", "playerCount", "me", "teams", "calib", "round", "leaderboardTop",
+}
 SECRET_KEYS = {"videoId", "startSec", "endSec", "correctIndex", "animeName", "songLabel", "reveal", "result", "gained"}
 
 
@@ -66,6 +70,7 @@ def test_player_results_at_reveal():
         "gained": 1_000,
         "animeName": q.song.anime_name,
         "songLabel": q.song.song_label,
+        "team": None,
     }
     assert (rb["correct"], rb["gained"]) == (False, 0)
     assert (rc["correct"], rc["gained"]) == (False, 0)
@@ -99,7 +104,7 @@ def test_player_view_shape_in_lobby():
     view = player_view(room, a, 1_234)
     assert set(view) == PLAYER_KEYS
     assert (view["serverNow"], view["hostOnline"], view["playerCount"]) == (1_234, False, 3)
-    assert view["me"] == {"id": a, "name": "P0", "score": 0, "rank": 1, "delayMs": 0, "calibrated": False}
+    assert view["me"] == {"id": a, "name": "P0", "score": 0, "rank": 1, "delayMs": 0, "calibrated": False, "team": None}
     assert view["calib"] is None and view["round"] is None
 
 
@@ -112,7 +117,7 @@ def test_host_view_in_lobby():
     assert (view["phase"], view["mode"], view["serverNow"]) == ("LOBBY", "stream", 5_000)
     assert view["settings"] == {"questionCount": 3, "clipSec": 15, "revealSec": 15, "maxPlayers": 30, "mode": "stream"}
     pa, pb, pc = view["players"]
-    assert pa == {"id": a, "name": "P0", "online": True, "delayMs": 1_200, "calibrated": True, "score": 0}
+    assert pa == {"id": a, "name": "P0", "online": True, "delayMs": 1_200, "calibrated": True, "score": 0, "team": None}
     assert pb["online"] is False
     assert (pc["delayMs"], pc["calibrated"]) == (1_200, False)  # room-median fallback
     assert view["calib"] is None and view["round"] is None and view["notice"] is None
@@ -169,6 +174,7 @@ def test_host_view_reveal():
         "optionCounts": counts,
         "animeName": q.song.anime_name,
         "songLabel": q.song.song_label,
+        "teamPicks": None,
     }
     rows = [(row["name"], row["rank"], row["gained"]) for row in view["leaderboard"]]
     assert rows == [("P0", 1, 1_000), ("P1", 2, 0), ("P2", 2, 0)]
@@ -182,3 +188,88 @@ def test_host_view_shows_notice_and_views_are_json():
     assert view["notice"] == "AUDIO_REPLACED"
     for snapshot in (view, player_view(room, a, 500)):
         assert json.loads(json.dumps(snapshot)) == snapshot
+
+
+def team_lobby():
+    """3 người chơi chia 2 đội (P0, P2 đội 0; P1 đội 1); đội 0 tên Mèo."""
+    room, ids = lobby_room()
+    room.set_teams(2)
+    room.rename_team(0, "Mèo")
+    return room, ids
+
+
+def test_team_tables_in_the_lobby():
+    room, (a, b, c) = team_lobby()
+    host = host_view(room, 1_000)
+    assert host["teams"] == [
+        {"index": 0, "name": "Mèo", "score": 0, "rank": 1, "gained": None, "memberIds": [a, c]},
+        {"index": 1, "name": "Đội Chanh", "score": 0, "rank": 1, "gained": None, "memberIds": [b]},
+    ]
+    assert [player["team"] for player in host["players"]] == [0, 1, 0]
+    view = player_view(room, b, 1_000)
+    assert view["me"]["team"] == 1
+    assert view["teams"] == [
+        {"index": 0, "name": "Mèo", "score": 0, "rank": 1, "gained": None, "members": ["P0", "P2"]},
+        {"index": 1, "name": "Đội Chanh", "score": 0, "rank": 1, "gained": None, "members": ["P1"]},
+    ]
+
+
+def test_team_votes_show_only_my_team_and_nothing_leaks():
+    room, (a, b, c) = team_lobby()
+    room.start_game()
+    assert player_view(room, a, 2_000)["round"]["teamVotes"] is None
+    room.audio_started(0, 2_000)
+    q = room.round.question
+    wrong = (q.correct_index + 1) % 4
+    room.answer(a, 0, q.correct_index, 2_500)
+    room.answer(b, 0, wrong, 2_500)
+    mine, theirs = [0, 0, 0, 0], [0, 0, 0, 0]
+    mine[q.correct_index] = 1
+    theirs[wrong] = 1
+    views = [player_view(room, pid, 3_000) for pid in (a, b, c)]
+    assert [view["round"]["teamVotes"] for view in views] == [mine, theirs, mine]
+    for view in views:
+        assert non_null_keys(view) & SECRET_KEYS == set()
+    host_round = host_view(room, 3_000)["round"]
+    assert host_round["reveal"] is None and host_round["answeredCount"] == 2
+
+
+def test_team_results_at_reveal():
+    room, (a, b, c) = team_lobby()
+    room.start_game()
+    room.audio_started(0, 2_000)
+    q = room.round.question
+    wrong = (q.correct_index + 1) % 4
+    room.answer(a, 0, wrong, 2_000)
+    room.answer(c, 0, wrong, 2_000)
+    room.answer(b, 0, q.correct_index, 2_000)
+    host = host_view(room, 2_000)
+    assert host["round"]["reveal"]["teamPicks"] == [
+        {"team": 0, "option": wrong, "tied": False, "gained": 0},
+        {"team": 1, "option": q.correct_index, "tied": False, "gained": 1_000},
+    ]
+    rows = [(team["index"], team["rank"], team["score"], team["gained"]) for team in host["teams"]]
+    assert rows == [(0, 2, 0, 0), (1, 1, 1_000, 1_000)]
+    view = player_view(room, a, 2_000)
+    assert view["round"]["result"]["team"] == {"option": wrong, "tied": False, "correct": False, "gained": 0}
+    assert view["me"]["score"] == 0
+    assert player_view(room, b, 2_000)["round"]["result"]["team"] == {
+        "option": q.correct_index,
+        "tied": False,
+        "correct": True,
+        "gained": 1_000,
+    }
+
+
+def test_normal_mode_sends_null_team_fields():
+    room, (a, _, _) = lobby_room()
+    room.start_game()
+    room.audio_started(0, 1_000)
+    room.answer(a, 0, 0, 1_500)
+    room.tick(19_000)
+    host = host_view(room, 19_000)
+    assert host["teams"] is None and host["round"]["reveal"]["teamPicks"] is None
+    assert {player["team"] for player in host["players"]} == {None}
+    view = player_view(room, a, 19_000)
+    assert view["teams"] is None and view["me"]["team"] is None
+    assert view["round"]["teamVotes"] is None and view["round"]["result"]["team"] is None
