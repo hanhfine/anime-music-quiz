@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { AnswerTile } from '../../components/AnswerTile'
+import { Burst } from '../../components/Burst'
+import { Callout } from '../../components/Callout'
 import { CdDisc } from '../../components/CdDisc'
+import { PopChip } from '../../components/PopPanel'
 import { TILES, type TileState } from '../../components/tiles'
 import { remainingMs } from '../../lib/clock'
 import { errorMessage, type PlayerRound, type PlayerSnapshot } from '../../lib/protocol'
@@ -9,17 +12,20 @@ import { useNow } from '../../lib/useNow'
 
 function Title({ round }: { round: PlayerRound }) {
   return (
-    <h1 className="text-2xl font-bold">
+    <PopChip as="h1" className="text-3xl">
       Câu {round.index + 1}/{round.total}
-    </h1>
+    </PopChip>
   )
 }
 
 export function PlayerPreparing({ round }: { round: PlayerRound }) {
   return (
-    <p className="py-16 text-center text-3xl font-bold">
-      Câu {round.index + 1}/{round.total}: chuẩn bị nghe…
-    </p>
+    <section className="flex flex-col items-center gap-8 py-16">
+      <PopChip as="p" className="text-3xl">
+        Câu {round.index + 1}/{round.total}: chuẩn bị nghe…
+      </PopChip>
+      <CdDisc size="sm" />
+    </section>
   )
 }
 
@@ -44,29 +50,31 @@ export function PlayerAnswering({ round, offset }: { round: PlayerRound; offset:
   const tileState = (i: number): TileState => (picked === null ? 'idle' : i === picked ? 'chosen' : 'dimmed')
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-1 flex-col gap-4">
       <div className="flex items-center justify-between">
         <Title round={round} />
         <CdDisc size="sm" remainingMs={remainingMs(deadline, offset, now)} totalMs={totalMs} />
       </div>
-      <div className="grid gap-3">
+      {/* Cùng vị trí với màn stream: A trên-trái, B trên-phải, C dưới-trái, D dưới-phải. */}
+      <div className="grid min-h-[55dvh] flex-1 grid-cols-2 grid-rows-2 gap-3 text-xl">
         {(round.options ?? []).map((label, i) => (
           <AnswerTile
             key={i}
             index={i}
             label={label}
+            layout="stack"
             state={tileState(i)}
             disabled={picked !== null}
             onSelect={(index) => void choose(index)}
           />
         ))}
       </div>
-      {picked !== null && <p className="text-center text-xl">Đã chọn {TILES[picked].letter}, chờ kết quả</p>}
-      {error && (
-        <p role="alert" className="rounded-xl bg-red-500/15 p-3 text-red-200">
-          {error}
+      {picked !== null && (
+        <p className="text-center text-xl font-black text-pop-lime italic">
+          Đã chọn {TILES[picked].letter}, chờ kết quả
         </p>
       )}
+      {error && <Callout tone="error">{error}</Callout>}
     </section>
   )
 }
@@ -80,18 +88,34 @@ export function PlayerReveal({ snapshot, round }: { snapshot: PlayerSnapshot; ro
     : myAnswer === null
       ? `⌛ Hết giờ, đáp án là ${answer}`
       : `❌ Sai, đáp án là ${answer}`
+  const banner = result.correct
+    ? 'bg-pop-lime text-pop-ink shadow-[5px_5px_0_var(--color-pop-red)]'
+    : myAnswer === null
+      ? 'bg-pop-paper text-pop-ink shadow-[5px_5px_0_var(--color-pop-red)]'
+      : 'bg-pop-red text-pop-paper shadow-[5px_5px_0_var(--color-pop-paper)]'
 
   const tileState = (i: number): TileState =>
     i === result.correctIndex ? 'correct' : i === myAnswer ? 'wrong' : 'dimmed'
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-1 flex-col gap-4">
       <Title round={round} />
-      <p className={`text-3xl font-black ${result.correct ? 'text-emerald-300' : 'text-red-300'}`}>{line}</p>
-      {result.songLabel && <p className="text-lg text-slate-300">{result.songLabel}</p>}
-      <div className="grid gap-3">
+      <div className="relative">
+        {result.correct && (
+          <Burst className="absolute -top-10 -right-4 size-32 fill-pop-red motion-safe:animate-slam" />
+        )}
+        <p className={`relative -skew-x-6 px-4 py-3 text-3xl font-black italic motion-safe:animate-slam ${banner}`}>
+          {line}
+        </p>
+      </div>
+      {result.songLabel && (
+        <PopChip as="p" className="text-lg">
+          {result.songLabel}
+        </PopChip>
+      )}
+      <div className="grid min-h-[45dvh] flex-1 grid-cols-2 grid-rows-2 gap-3 text-xl">
         {(round.options ?? []).map((label, i) => (
-          <AnswerTile key={i} index={i} label={label} state={tileState(i)} />
+          <AnswerTile key={i} index={i} label={label} layout="stack" state={tileState(i)} />
         ))}
       </div>
     </section>
