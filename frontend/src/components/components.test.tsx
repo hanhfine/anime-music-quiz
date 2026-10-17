@@ -95,6 +95,29 @@ describe('AnswerTile', () => {
     rerender(<AnswerTile index={2} label="Bleach" />)
     expect(screen.getByText('C').parentElement).not.toHaveClass('flex-col')
   })
+
+  it('shows my team votes on the tile without changing its name', () => {
+    const { rerender } = render(<AnswerTile index={0} label="Naruto" votes={2} onSelect={() => {}} />)
+    expect(screen.getByRole('button', { name: 'A: Naruto' })).toHaveTextContent('2 phiếu')
+    rerender(<AnswerTile index={0} label="Naruto" votes={0} onSelect={() => {}} />)
+    expect(screen.queryByText(/phiếu/)).not.toBeInTheDocument()
+  })
+
+  it('marks the tile with the teams that picked it', () => {
+    render(
+      <AnswerTile
+        index={1}
+        label="Bleach"
+        state="correct"
+        teamMarks={[
+          { team: 1, name: 'Đội Chanh' },
+          { team: 3, name: 'Mèo' },
+        ]}
+      />,
+    )
+    expect(screen.getByText('Đội Chanh')).toHaveClass('bg-pop-lime')
+    expect(screen.getByText('Mèo')).toHaveClass('bg-pop-violet')
+  })
 })
 
 describe('Leaderboard', () => {

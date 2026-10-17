@@ -1,3 +1,4 @@
+import { TeamChip } from './TeamChip'
 import { TILES, type TileState } from './tiles'
 
 interface Props {
@@ -8,6 +9,8 @@ interface Props {
   disabled?: boolean
   layout?: 'row' | 'stack'
   onSelect?: (index: number) => void
+  votes?: number // số phiếu của đội mình (điện thoại, chế độ đội)
+  teamMarks?: { team: number; name: string }[] // các đội chốt ô này (màn quản trò lúc công bố)
 }
 
 const HOVER_MOTION =
@@ -23,7 +26,17 @@ const STATE_MOTION: Record<TileState, string> = {
 
 // Cấu trúc: phần tử ngoài (bóng cứng, phóng to) > lớp viền clip-slant > mặt clip-slant.
 // Ô chỉ phản ứng với chuột khi là button đang bật: chuột của quản trò dừng trên ô nào thì cả stream thấy.
-export function AnswerTile({ index, label, state = 'idle', count, disabled, layout = 'row', onSelect }: Props) {
+export function AnswerTile({
+  index,
+  label,
+  state = 'idle',
+  count,
+  disabled,
+  layout = 'row',
+  onSelect,
+  votes,
+  teamMarks,
+}: Props) {
   const tile = TILES[index]
   const interactive = onSelect !== undefined
   const chosen = state === 'chosen'
@@ -89,6 +102,18 @@ export function AnswerTile({ index, label, state = 'idle', count, disabled, layo
           className="absolute -top-3 -right-2 rotate-8 bg-pop-red px-2 py-0.5 text-xl leading-none font-black text-pop-paper italic shadow-[3px_3px_0_var(--color-pop-ink)]"
         >
           ✕
+        </span>
+      )}
+      {votes !== undefined && votes > 0 && (
+        <span className="absolute -top-3 left-4 -skew-x-12 bg-pop-ink px-2 text-sm font-black text-pop-lime italic tabular-nums">
+          {votes} phiếu
+        </span>
+      )}
+      {teamMarks && teamMarks.length > 0 && (
+        <span className="absolute -bottom-3 left-4 flex gap-1">
+          {teamMarks.map((mark) => (
+            <TeamChip key={mark.team} team={mark.team} name={mark.name} size="sm" />
+          ))}
         </span>
       )}
     </>
