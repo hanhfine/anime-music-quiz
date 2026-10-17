@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnswerTile } from '../../components/AnswerTile'
-import { CountdownRing } from '../../components/CountdownRing'
+import { CdDisc } from '../../components/CdDisc'
 import { TILES, type TileState } from '../../components/tiles'
 import { remainingMs } from '../../lib/clock'
 import { errorMessage, type PlayerRound, type PlayerSnapshot } from '../../lib/protocol'
@@ -47,7 +47,7 @@ export function PlayerAnswering({ round, offset }: { round: PlayerRound; offset:
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <Title round={round} />
-        <CountdownRing remainingMs={remainingMs(deadline, offset, now)} totalMs={totalMs} size={80} />
+        <CdDisc size="sm" remainingMs={remainingMs(deadline, offset, now)} totalMs={totalMs} />
       </div>
       <div className="grid gap-3">
         {(round.options ?? []).map((label, i) => (

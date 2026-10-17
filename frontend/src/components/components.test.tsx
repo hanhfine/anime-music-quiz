@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { LeaderboardRow } from '../lib/protocol'
 import { AnswerTile } from './AnswerTile'
-import { CountdownRing } from './CountdownRing'
+import { CdDisc } from './CdDisc'
 import { DelayBadge } from './DelayBadge'
 import { Leaderboard } from './Leaderboard'
 import { Podium } from './Podium'
@@ -109,10 +109,35 @@ describe('Podium', () => {
   })
 })
 
-describe('CountdownRing', () => {
-  it('rounds the remaining seconds up', () => {
-    render(<CountdownRing remainingMs={4200} totalMs={18000} />)
+describe('CdDisc', () => {
+  it('counts down the remaining seconds, rounded up', () => {
+    render(<CdDisc size="lg" remainingMs={4200} totalMs={18000} />)
     expect(screen.getByRole('timer', { name: 'Còn 5 giây' })).toHaveTextContent('5')
+  })
+
+  it('is decorative without a countdown', () => {
+    const { container } = render(<CdDisc size="sm" />)
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument()
+    expect(container.firstChild).toHaveAttribute('aria-hidden', 'true')
+    expect(container.textContent).toBe('')
+  })
+
+  it('throws notes and bolts only around the large disc', () => {
+    const large = render(<CdDisc size="lg" />)
+    expect(screen.getAllByText(/^[♪♫♬♩]$/)).toHaveLength(5)
+    expect(large.container.querySelectorAll('polygon')).toHaveLength(2)
+    large.unmount()
+    const small = render(<CdDisc size="sm" remainingMs={9000} totalMs={18000} />)
+    expect(screen.queryAllByText(/^[♪♫♬♩]$/)).toHaveLength(0)
+    expect(small.container.querySelectorAll('polygon')).toHaveLength(0)
+  })
+
+  it('turns the ring red in the last 5 seconds', () => {
+    const { container, rerender } = render(<CdDisc size="sm" remainingMs={9000} totalMs={18000} />)
+    expect(container.querySelector('.stroke-pop-lime')).not.toBeNull()
+    rerender(<CdDisc size="sm" remainingMs={4200} totalMs={18000} />)
+    expect(container.querySelector('.stroke-pop-red')).not.toBeNull()
+    expect(container.querySelector('.stroke-pop-lime')).toBeNull()
   })
 })
 

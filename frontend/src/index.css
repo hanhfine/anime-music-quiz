@@ -95,6 +95,33 @@
   background-attachment: fixed;
 }
 
+/* Mặt đĩa CD: nhãn giữa, vệt sáng, rãnh đĩa (lớp đầu nằm trên cùng). */
+@utility disc-face {
+  border-radius: 9999px;
+  background:
+    radial-gradient(
+      circle,
+      var(--color-pop-paper) 0 6%,
+      var(--color-pop-ink) 6% 8%,
+      var(--color-pop-red) 8% 30%,
+      var(--color-pop-ink) 30% 32%,
+      transparent 32%
+    ),
+    conic-gradient(
+      rgb(255 255 255 / 0.35),
+      transparent 12%,
+      transparent 38%,
+      rgb(228 255 26 / 0.35) 50%,
+      transparent 62%,
+      transparent 88%,
+      rgb(255 255 255 / 0.35)
+    ),
+    repeating-radial-gradient(circle, #1b1b1b 0 2px, #0b0b0b 2px 4px);
+  box-shadow:
+    0 0 0 3px var(--color-pop-paper),
+    6px 6px 0 3px var(--color-pop-red);
+}
+
 :root {
   color-scheme: dark;
 }

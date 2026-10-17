@@ -1,5 +1,5 @@
 import { AnswerTile } from '../../components/AnswerTile'
-import { CountdownRing } from '../../components/CountdownRing'
+import { CdDisc } from '../../components/CdDisc'
 import { Leaderboard } from '../../components/Leaderboard'
 import { remainingMs } from '../../lib/clock'
 import { GRACE_MS, type HostRound, type HostSnapshot } from '../../lib/protocol'
@@ -96,7 +96,8 @@ export function HostQuestion({ snapshot, round, offset }: Props) {
       <div className="flex items-center justify-between gap-6">
         <h1 className="text-4xl font-black">Câu {number}</h1>
         {round.deadline !== null && (
-          <CountdownRing
+          <CdDisc
+            size="sm"
             remainingMs={remainingMs(round.deadline, offset, now)}
             totalMs={settings.clipSec * 1000 + GRACE_MS}
           />
