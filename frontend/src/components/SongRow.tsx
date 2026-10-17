@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { LOOKUP_ERROR_MESSAGE, searchAnime, type Candidate } from '../lib/api'
 import type { Song } from '../lib/sets/schema'
+import { PopButton } from './PopButton'
 
 interface Props {
   song: Song
@@ -38,47 +39,42 @@ export function SongRow({ song, index, candidates, suggesting, suggestFailed, on
   }
 
   return (
-    <li aria-label={`Bài ${index + 1}`} className="flex flex-col gap-3 rounded-xl bg-slate-900 p-4">
-      <div className="flex items-start gap-3">
-        <span className="font-mono text-slate-500">#{index + 1}</span>
+    <li aria-label={`Bài ${index + 1}`} className="flex flex-col gap-3 border-2 border-neutral-800 bg-neutral-900 p-4">
+      <div className="flex items-center gap-3">
+        <span className="font-semibold text-neutral-500 tabular-nums">#{index + 1}</span>
         <a
           href={`https://www.youtube.com/watch?v=${song.videoId}`}
           target="_blank"
           rel="noreferrer"
-          className="min-w-0 flex-1 truncate text-slate-300 hover:underline"
+          className="min-w-0 flex-1 truncate font-medium text-neutral-300 hover:underline"
         >
           {song.videoTitle || song.videoId}
         </a>
-        <span className="text-sm text-slate-500">{formatDuration(song.durationSec)}</span>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Xóa bài ${index + 1}`}
-          className="rounded bg-red-800 px-2 text-sm"
-        >
+        <span className="text-base text-neutral-500 tabular-nums">{formatDuration(song.durationSec)}</span>
+        <PopButton variant="danger" size="sm" onClick={onRemove} aria-label={`Xóa bài ${index + 1}`}>
           Xóa
-        </button>
+        </PopButton>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[2fr_1fr_8rem]">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-base font-semibold">
           Tên anime
           <input
             value={song.animeName}
             onChange={(e) => onChange({ animeName: e.target.value, needsReview: false })}
-            className="rounded bg-slate-800 px-2 py-1 text-base"
+            className="border border-neutral-700 bg-neutral-800 px-2 py-1 font-medium"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-base font-semibold">
           Nhãn bài
           <input
             value={song.songLabel ?? ''}
             onChange={(e) => onChange({ songLabel: e.target.value || null })}
             placeholder="VD: OP1"
-            className="rounded bg-slate-800 px-2 py-1 text-base"
+            className="border border-neutral-700 bg-neutral-800 px-2 py-1 font-medium"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-base font-semibold">
           Bắt đầu (giây)
           <input
             type="number"
@@ -90,51 +86,47 @@ export function SongRow({ song, index, candidates, suggesting, suggestFailed, on
               onChange({ startSec: Number.isNaN(value) ? null : Math.max(0, value) })
             }}
             placeholder="Ngẫu nhiên"
-            className="rounded bg-slate-800 px-2 py-1 text-base"
+            className="border border-neutral-700 bg-neutral-800 px-2 py-1 font-medium tabular-nums"
           />
         </label>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-base">
         {song.needsReview && (
           <>
-            <span className="rounded bg-amber-500/20 px-2 py-1 text-amber-200">Gợi ý, chưa xác nhận</span>
-            <button
-              type="button"
-              onClick={() => onChange({ needsReview: false })}
-              className="rounded bg-emerald-700 px-2 py-1"
-            >
+            <span className="border border-pop-lime px-2 py-0.5 font-semibold text-pop-lime">Gợi ý, chưa xác nhận</span>
+            <PopButton size="sm" onClick={() => onChange({ needsReview: false })}>
               Xác nhận
-            </button>
+            </PopButton>
           </>
         )}
-        {suggesting && <span className="text-slate-400">Đang gợi ý…</span>}
-        {suggestFailed && <span className="text-amber-300">Không tra được tên</span>}
+        {suggesting && <span className="text-neutral-400">Đang gợi ý…</span>}
+        {suggestFailed && <span className="font-semibold text-pop-lime">Không tra được tên</span>}
         {options.map((candidate) => (
           <button
             key={candidateText(candidate)}
             type="button"
             onClick={() => onChange({ animeName: candidate.animeName, songLabel: candidate.songLabel, needsReview: false })}
-            className="rounded-full bg-slate-700 px-3 py-1 hover:bg-slate-600"
+            className="-skew-x-6 bg-neutral-800 px-3 py-1 font-semibold hover:bg-pop-lime hover:text-pop-ink"
           >
             {candidateText(candidate)}
           </button>
         ))}
-        {results?.length === 0 && !searchFailed && <span className="text-slate-400">Không tìm thấy</span>}
-        {searchFailed && <span className="text-amber-300">{LOOKUP_ERROR_MESSAGE}</span>}
+        {results?.length === 0 && !searchFailed && <span className="text-neutral-400">Không tìm thấy</span>}
+        {searchFailed && <span className="font-semibold text-pop-lime">{LOOKUP_ERROR_MESSAGE}</span>}
       </div>
 
-      <form onSubmit={search} className="flex gap-2 text-sm">
+      <form onSubmit={search} className="flex items-center gap-3 text-base">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Tìm tên anime"
           placeholder="Tìm tên anime khác…"
-          className="flex-1 rounded bg-slate-800 px-2 py-1"
+          className="flex-1 border border-neutral-700 bg-neutral-800 px-2 py-1 font-medium"
         />
-        <button type="submit" disabled={searching} className="rounded bg-slate-700 px-3 py-1 disabled:opacity-50">
+        <PopButton type="submit" variant="secondary" size="sm" disabled={searching}>
           Tìm
-        </button>
+        </PopButton>
       </form>
     </li>
   )

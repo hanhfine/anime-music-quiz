@@ -5,6 +5,9 @@ import { saveRoomAuth } from '../lib/roomAuth'
 import { clampRoomSettings, defaultRoomSettings, SETTING_LIMITS } from '../lib/roomSettings'
 import { readySongs, roomBlocker, unreadyNote, type Song } from '../lib/sets/schema'
 import { emitAck } from '../lib/socket'
+import { Callout } from './Callout'
+import { PopButton } from './PopButton'
+import { PopPanel } from './PopPanel'
 
 type NumericSetting = Exclude<keyof RoomSettings, 'mode'>
 
@@ -54,11 +57,10 @@ export function CreateRoomPanel({ songs }: { songs: Song[] }) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl bg-slate-900 p-4">
-      <h2 className="text-xl font-bold">Tạo phòng</h2>
+    <PopPanel title="Tạo phòng">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {fields.map(({ key, label, min, max }) => (
-          <label key={key} className="flex flex-col gap-1 text-sm">
+          <label key={key} className="flex flex-col gap-1 text-base font-semibold">
             {label}
             <input
               type="number"
@@ -66,30 +68,21 @@ export function CreateRoomPanel({ songs }: { songs: Song[] }) {
               max={max}
               value={Number.isNaN(settings[key]) ? '' : settings[key]}
               onChange={(e) => setCustom((prev) => ({ ...prev, [key]: e.target.valueAsNumber }))}
-              className="rounded bg-slate-800 px-2 py-1 text-base"
+              className="border border-neutral-700 bg-neutral-800 px-2 py-1 font-medium tabular-nums"
             />
           </label>
         ))}
       </div>
-      <p className="text-sm text-slate-400">
+      <p className="text-base text-neutral-400">
         Mở màn hình quản trò rồi chia sẻ tab đó kèm âm thanh trên Discord. Phát thêm 0 giây nghĩa là không phát video khi
         công bố đáp án.
       </p>
-      {blocker && <p className="text-amber-300">{blocker}</p>}
-      {note && <p className="text-sm text-amber-200">{note}</p>}
-      {error && (
-        <p role="alert" className="rounded-lg bg-red-500/15 p-2 text-red-200">
-          {error}
-        </p>
-      )}
-      <button
-        type="button"
-        onClick={create}
-        disabled={blocker !== null || busy}
-        className="self-start rounded-lg bg-emerald-600 px-6 py-2 text-lg font-bold disabled:opacity-40"
-      >
+      {blocker && <p className="font-semibold text-pop-lime">{blocker}</p>}
+      {note && <p className="text-base text-pop-lime">{note}</p>}
+      {error && <Callout tone="error">{error}</Callout>}
+      <PopButton onClick={create} disabled={blocker !== null || busy} className="self-start">
         {busy ? 'Đang tạo…' : 'Tạo phòng'}
-      </button>
-    </section>
+      </PopButton>
+    </PopPanel>
   )
 }

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
+import { Callout } from '../components/Callout'
+import { PopButton } from '../components/PopButton'
+import { PopChip, PopPanel } from '../components/PopPanel'
 import { CreateRoomPanel } from '../components/CreateRoomPanel'
 import { SongRow } from '../components/SongRow'
 import { ApiError, describeSkipped, IMPORT_ERROR_MESSAGES, importUrl, suggestAnime, type Candidate } from '../lib/api'
@@ -36,9 +39,11 @@ function Editor({ id }: { id: string }) {
 
   if (!set) {
     return (
-      <main className="mx-auto max-w-md p-8 text-center">
-        <h1 className="text-2xl font-bold">Không tìm thấy bộ câu hỏi</h1>
-        <Link className="mt-4 inline-block text-sky-400 underline" to="/sets">
+      <main className="mx-auto flex max-w-md flex-col items-center gap-6 p-8 pt-16 text-center">
+        <PopChip as="h1" className="text-3xl">
+          Không tìm thấy bộ câu hỏi
+        </PopChip>
+        <Link className="font-semibold text-pop-lime underline" to="/sets">
           Về danh sách bộ câu hỏi
         </Link>
       </main>
@@ -135,10 +140,10 @@ function Editor({ id }: { id: string }) {
     )
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-4 p-6">
+    <main className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-sm tracking-widest text-slate-400 uppercase">Soạn bộ câu hỏi</h1>
-        <Link to="/sets" className="text-sky-400 underline">
+        <h1 className="text-sm font-semibold tracking-widest text-neutral-400 uppercase">Soạn bộ câu hỏi</h1>
+        <Link to="/sets" className="font-semibold text-pop-lime underline">
           ← Danh sách bộ
         </Link>
       </header>
@@ -146,69 +151,53 @@ function Editor({ id }: { id: string }) {
         aria-label="Tên bộ câu hỏi"
         value={set.name}
         onChange={(e) => setSet((prev) => prev && { ...prev, name: e.target.value })}
-        className="rounded-lg bg-slate-900 px-3 py-2 text-3xl font-black"
+        className="border-2 border-neutral-700 bg-neutral-900 px-3 py-2 text-3xl font-black italic"
       />
 
       <CreateRoomPanel songs={set.songs} />
 
-      <form onSubmit={runImport} className="flex flex-col gap-2 rounded-2xl bg-slate-900 p-4">
-        <label className="flex flex-col gap-1">
-          Link YouTube
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="Link video, shorts hoặc playlist (playlist tối đa 200 bài)"
-            className="rounded bg-slate-800 px-3 py-2"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={importing || !url.trim()}
-          className="self-start rounded-lg bg-sky-600 px-4 py-2 font-bold disabled:opacity-40"
-        >
-          {importing ? 'Đang lấy danh sách…' : 'Thêm'}
-        </button>
-        {importError && (
-          <p role="alert" className="rounded-lg bg-red-500/15 p-2 text-red-200">
-            {importError}
-          </p>
-        )}
-        {importInfo.length > 0 && (
-          <div role="status" className="text-sm text-slate-300">
-            {importInfo.map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-          </div>
-        )}
-      </form>
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-bold">{set.songs.length} bài</h2>
-        <div className="flex flex-wrap gap-2">
-          {unnamed.length > 0 && (
-            <button
-              type="button"
-              onClick={resuggest}
-              disabled={suggesting.size > 0}
-              className="rounded-lg bg-sky-700 px-3 py-1 disabled:opacity-40"
-            >
-              Gợi ý lại ({unnamed.length})
-            </button>
+      <PopPanel>
+        <form onSubmit={runImport} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 font-semibold">
+            Link YouTube
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Link video, shorts hoặc playlist (playlist tối đa 200 bài)"
+              className="border border-neutral-700 bg-neutral-800 px-3 py-2 font-medium"
+            />
+          </label>
+          <PopButton type="submit" disabled={importing || !url.trim()} className="self-start">
+            {importing ? 'Đang lấy danh sách…' : 'Thêm'}
+          </PopButton>
+          {importError && <Callout tone="error">{importError}</Callout>}
+          {importInfo.length > 0 && (
+            <div role="status" className="text-base text-neutral-300">
+              {importInfo.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
           )}
-          <button
-            type="button"
-            onClick={acceptAll}
-            disabled={reviewable === 0}
-            className="rounded-lg bg-emerald-700 px-3 py-1 disabled:opacity-40"
-          >
+        </form>
+      </PopPanel>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-black italic">{set.songs.length} bài</h2>
+        <div className="flex flex-wrap gap-4">
+          {unnamed.length > 0 && (
+            <PopButton variant="secondary" size="sm" onClick={resuggest} disabled={suggesting.size > 0}>
+              Gợi ý lại ({unnamed.length})
+            </PopButton>
+          )}
+          <PopButton size="sm" onClick={acceptAll} disabled={reviewable === 0}>
             Chấp nhận tất cả gợi ý ({reviewable})
-          </button>
+          </PopButton>
         </div>
       </div>
       {failedCount > 0 && suggesting.size === 0 && (
-        <p role="alert" className="rounded-lg bg-amber-500/15 p-2 text-amber-200">
+        <Callout tone="warn">
           Không tra được tên cho {failedCount} bài vì AnimeThemes đang bận. Đợi một lát rồi bấm Gợi ý lại.
-        </p>
+        </Callout>
       )}
 
       <ol className="flex flex-col gap-3">
