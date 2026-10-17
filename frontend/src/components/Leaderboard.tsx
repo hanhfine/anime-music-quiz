@@ -6,19 +6,23 @@ interface Props {
 }
 
 export function Leaderboard({ rows, highlightId }: Props) {
-  if (rows.length === 0) return <p className="text-slate-400">Chưa có người chơi</p>
+  if (rows.length === 0) return <p className="text-neutral-400">Chưa có người chơi</p>
   return (
-    <ol className="space-y-1">
+    <ol className="flex flex-col gap-1.5">
       {rows.map((row) => (
         <li
           key={row.playerId}
           data-me={row.playerId === highlightId}
-          className="flex items-center gap-3 rounded-lg bg-slate-800 px-3 py-2 data-[me=true]:bg-sky-800"
+          className="flex items-center gap-3 clip-slant bg-neutral-900 py-1.5 pr-6 pl-3 [--slant:10px] data-[me=true]:bg-pop-red"
         >
-          <span className="w-8 text-right font-bold text-slate-300">{row.rank}</span>
-          <span className="flex-1 truncate">{row.name}</span>
-          {row.gained !== null && row.gained > 0 && <span className="text-emerald-400">+{row.gained}</span>}
-          <span className="w-20 text-right font-mono">{row.score.toLocaleString('vi-VN')}</span>
+          <span className={`w-10 text-right text-2xl font-black italic ${row.rank === 1 ? 'text-pop-lime' : ''}`}>
+            {row.rank}
+          </span>
+          <span className="flex-1 truncate font-semibold">{row.name}</span>
+          {row.gained !== null && row.gained > 0 && (
+            <span className="-skew-x-12 bg-pop-lime px-2 font-black text-pop-ink italic">+{row.gained}</span>
+          )}
+          <span className="w-20 text-right font-semibold tabular-nums">{row.score.toLocaleString('vi-VN')}</span>
         </li>
       ))}
     </ol>

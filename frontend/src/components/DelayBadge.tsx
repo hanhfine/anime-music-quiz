@@ -3,7 +3,9 @@ export function DelayBadge({ delayMs, calibrated }: { delayMs: number; calibrate
   return (
     <span
       title={calibrated ? 'Độ trễ đã đo' : 'Chưa đo, dùng trung vị của phòng'}
-      className={`rounded-full px-2 py-0.5 font-mono text-sm ${calibrated ? 'bg-emerald-800 text-emerald-100' : 'bg-slate-700 text-slate-300'}`}
+      className={`inline-block -skew-x-12 px-2 py-0.5 text-base font-semibold tabular-nums ${
+        calibrated ? 'bg-pop-lime text-pop-ink' : 'bg-neutral-700 text-pop-paper'
+      }`}
     >
       {calibrated ? text : `~${text}`}
     </span>

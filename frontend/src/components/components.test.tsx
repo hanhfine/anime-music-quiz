@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { LeaderboardRow } from '../lib/protocol'
@@ -97,15 +97,17 @@ describe('Leaderboard', () => {
 })
 
 describe('Podium', () => {
-  it('shows the top 3 with medals by rank', () => {
+  it('shows the top 3 with their rank on the podium blocks', () => {
     render(
       <Podium
         rows={[row('a', 'An', 3000, 1), row('b', 'Bình', 2000, 2), row('c', 'Chi', 2000, 2), row('d', 'Dũng', 10, 4)]}
       />,
     )
-    expect(screen.getByText('An').closest('li')).toHaveTextContent('🥇')
-    expect(screen.getByText('Chi').closest('li')).toHaveTextContent('🥈')
+    const podium = screen.getByRole('list', { name: 'Bục vinh quang' })
+    expect(within(within(podium).getByText('An').closest('li')!).getByText('1')).toBeInTheDocument()
+    expect(within(within(podium).getByText('Chi').closest('li')!).getByText('2')).toBeInTheDocument()
     expect(screen.queryByText('Dũng')).not.toBeInTheDocument()
+    expect(screen.queryByText('🥇')).not.toBeInTheDocument()
   })
 })
 

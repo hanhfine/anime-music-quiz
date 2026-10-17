@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { beep } from '../../lib/beep'
@@ -173,7 +173,8 @@ describe('HostFinished', () => {
     const onClose = vi.fn()
     render(<HostFinished snapshot={hostSnapshot({ phase: 'FINISHED', leaderboard })} onClose={onClose} />)
     expect(screen.getByRole('heading', { name: /Kết quả chung cuộc/ })).toBeInTheDocument()
-    expect(screen.getByText('🥇')).toBeInTheDocument()
+    const podium = screen.getByRole('list', { name: 'Bục vinh quang' })
+    expect(within(within(podium).getByText('Mai').closest('li')!).getByText('1')).toBeInTheDocument()
     expect(screen.getAllByText('Mai')).toHaveLength(2) // bục vinh quang + bảng xếp hạng
     await userEvent.click(screen.getByRole('button', { name: 'Chơi lại' }))
     expect(socket.payloads('host:play_again')).toEqual([{}])

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LeaderboardRow } from '../../lib/protocol'
@@ -164,7 +164,8 @@ describe('PlayerFinished', () => {
     const { container } = render(<PlayerFinished snapshot={playerSnapshot({ phase: 'FINISHED', me, leaderboardTop })} />)
     expect(screen.getByText('Hạng 2/2')).toBeInTheDocument()
     expect(screen.getByText('870 điểm')).toBeInTheDocument()
-    expect(screen.getByText('🥇')).toBeInTheDocument()
+    const podium = screen.getByRole('list', { name: 'Bục vinh quang' })
+    expect(within(within(podium).getByText('Long').closest('li')!).getByText('1')).toBeInTheDocument()
     expect(container.querySelector('[data-me="true"]')).toHaveTextContent('Mai')
   })
 })
