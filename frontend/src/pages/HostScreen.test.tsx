@@ -106,6 +106,17 @@ describe('HostScreen', () => {
     expect(screen.getByTestId('stage')).toHaveClass('left-[calc(50%-160px)]', 'top-[calc(50%-90px)]')
   })
 
+  it('slides the stage between small and large but hides it at once so it never covers the podium', () => {
+    const { push } = setup()
+    const round = hostRound()
+    push({ phase: 'PREPARING', round })
+    expect(screen.getByTestId('stage')).toHaveClass('motion-safe:transition-all')
+    push({ phase: 'REVEAL', round: { ...round, reveal } })
+    expect(screen.getByTestId('stage')).toHaveClass('motion-safe:transition-all')
+    push({ phase: 'FINISHED' })
+    expect(screen.getByTestId('stage')).not.toHaveClass('motion-safe:transition-all')
+  })
+
   it('applies the saved volume and remembers changes', () => {
     localStorage.setItem('animequiz:volume', '35')
     const { players } = setup()

@@ -30,7 +30,8 @@ export function HostCalibration({ calib, players }: { calib: HostCalib; players:
 
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center gap-8 text-center">
-      <PopChip as="p" className="text-4xl">
+      {/* z-10: hình nổ BẤM! nằm sau trong DOM nên sẽ vẽ đè lên chip. */}
+      <PopChip as="p" className="relative z-10 text-4xl">
         Đo độ trễ · Lượt {round}/{CALIB_ROUNDS}
       </PopChip>
       {showFlash ? (

@@ -138,10 +138,13 @@ function Host({ code }: { code: string }) {
         <p className="p-8 text-2xl font-semibold text-neutral-400">Đang kết nối tới phòng…</p>
       )}
 
+      {/* Ẩn thì ẩn ngay: có transition, visibility chỉ đổi khi trượt xong nên khung đè lên màn kết quả 0,7 giây. */}
       <div
         data-testid="stage"
         data-layout={layout}
-        className={`fixed z-10 overflow-hidden bg-pop-ink motion-safe:transition-all motion-safe:duration-700 ${STAGE_CLASSES[layout]}`}
+        className={`fixed z-10 overflow-hidden bg-pop-ink ${
+          layout === 'hidden' ? '' : 'motion-safe:transition-all motion-safe:duration-700'
+        } ${STAGE_CLASSES[layout]}`}
       >
         {/* Player tự gắn phần tử của nó vào đây; React không render con nào bên trong. */}
         <div ref={stageRef} className="h-full w-full" />

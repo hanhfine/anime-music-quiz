@@ -117,6 +117,11 @@ describe('HostCalibration', () => {
     expect(screen.getByText('1/1 người đã bấm')).toBeInTheDocument()
     expect(beep).not.toHaveBeenCalled()
   })
+
+  it('keeps the round label above the BẤM! burst', () => {
+    render(<HostCalibration calib={{ round: 1, waitMs: 3000, flashed: true, tappedCount: 0 }} players={players} />)
+    expect(screen.getByText('Đo độ trễ · Lượt 1/3')).toHaveClass('relative', 'z-10')
+  })
 })
 
 describe('HostQuestion', () => {
@@ -164,6 +169,16 @@ describe('HostQuestion', () => {
     render(<HostQuestion snapshot={hostSnapshot({ phase: 'REVEAL', round, leaderboard })} round={round} offset={0} />)
     expect(screen.getByRole('heading', { name: 'Câu 2/2' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Xem kết quả' })).toBeInTheDocument()
+  })
+
+  it('scrolls a long leaderboard inside the column so the next button stays on screen', () => {
+    const round = hostRound({ reveal })
+    render(<HostQuestion snapshot={hostSnapshot({ phase: 'REVEAL', round, leaderboard })} round={round} offset={0} />)
+    const board = screen.getByRole('list').parentElement!
+    expect(board).toHaveClass('min-h-0', 'overflow-y-auto')
+    const column = board.parentElement!
+    expect(column).toHaveClass('fixed', 'top-20', 'bottom-6')
+    expect(column).toContainElement(screen.getByRole('button', { name: 'Câu tiếp →' }))
   })
 })
 

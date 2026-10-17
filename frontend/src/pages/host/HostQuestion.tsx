@@ -72,40 +72,41 @@ export function HostQuestion({ snapshot, round, offset }: Props) {
 
   if (reveal) {
     return (
-      // 58vw bên trái để trống cho khung video (HostScreen đặt khung video cố định ở đó).
-      <div className="grid grid-cols-[58vw_1fr] gap-6 p-6">
-        <div aria-hidden="true" />
-        <div className="flex flex-col gap-4">
-          <PopChip as="h1" className="text-3xl">
-            Câu {number}
+      // Cột cố định bên phải khung video (HostScreen đặt khung ở left-6 top-20, rộng 56vw), cao vừa màn hình:
+      // bảng xếp hạng dài thì cuộn bên trong, nút "Câu tiếp" luôn nằm trong màn hình.
+      // right-12 chừa chỗ cho ô đúng phóng to và nhãn "✓ Đúng" nhô ra.
+      <div className="fixed top-20 right-12 bottom-6 left-[calc(58vw+3rem)] flex flex-col gap-4">
+        <PopChip as="h1" className="text-3xl">
+          Câu {number}
+        </PopChip>
+        <h2 className="text-5xl leading-none font-black text-pop-lime italic [text-shadow:4px_4px_0_var(--color-pop-red)] motion-safe:animate-slam">
+          {reveal.animeName}
+        </h2>
+        {reveal.songLabel && (
+          <PopChip as="p" className="text-lg">
+            {reveal.songLabel}
           </PopChip>
-          <h2 className="text-5xl leading-none font-black text-pop-lime italic [text-shadow:4px_4px_0_var(--color-pop-red)] motion-safe:animate-slam">
-            {reveal.animeName}
-          </h2>
-          {reveal.songLabel && (
-            <PopChip as="p" className="text-lg">
-              {reveal.songLabel}
-            </PopChip>
-          )}
-          <div className="grid gap-3 text-2xl">
-            {round.options.map((label, i) => (
-              <AnswerTile
-                key={i}
-                index={i}
-                label={label}
-                state={i === reveal.correctIndex ? 'correct' : 'dimmed'}
-                count={reveal.optionCounts[i]}
-              />
-            ))}
-          </div>
+        )}
+        <div className="grid gap-2 text-xl">
+          {round.options.map((label, i) => (
+            <AnswerTile
+              key={i}
+              index={i}
+              label={label}
+              state={i === reveal.correctIndex ? 'correct' : 'dimmed'}
+              count={reveal.optionCounts[i]}
+            />
+          ))}
+        </div>
+        <div className="min-h-0 overflow-y-auto [scrollbar-width:thin]">
           <Leaderboard rows={snapshot.leaderboard.slice(0, 10)} />
-          {errorBox}
-          <div className="flex flex-wrap items-center gap-6">
-            <PopButton size="lg" onClick={() => void run('host:next')} disabled={busy}>
-              {round.index + 1 >= round.total ? 'Xem kết quả' : 'Câu tiếp →'}
-            </PopButton>
-            {replayButton('md')}
-          </div>
+        </div>
+        {errorBox}
+        <div className="flex flex-wrap items-center gap-6">
+          <PopButton size="lg" onClick={() => void run('host:next')} disabled={busy}>
+            {round.index + 1 >= round.total ? 'Xem kết quả' : 'Câu tiếp →'}
+          </PopButton>
+          {replayButton('md')}
         </div>
       </div>
     )
