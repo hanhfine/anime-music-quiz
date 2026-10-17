@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Callout } from '../../components/Callout'
+import { PopChip } from '../../components/PopPanel'
 import { CALIB_ROUNDS, errorMessage, type ErrorCode, type PlayerCalib } from '../../lib/protocol'
 import { emitAck } from '../../lib/socket'
 
@@ -21,28 +23,26 @@ export function PlayerCalibration({ calib }: { calib: PlayerCalib }) {
 
   return (
     <section className="flex flex-col gap-4 text-center">
-      <h1 className="text-2xl font-bold">
+      <PopChip as="h1" className="self-center text-3xl">
         Đo độ trễ · Lượt {calib.round}/{CALIB_ROUNDS}
-      </h1>
+      </PopChip>
       {calib.tapped ? (
-        <p className="py-16 text-3xl font-bold text-emerald-300">Đã bấm lượt {calib.round}</p>
+        <p className="py-16 text-4xl font-black text-pop-lime italic">Đã bấm lượt {calib.round}</p>
       ) : (
         <>
-          <p className="text-lg text-slate-300">Bấm đúng lúc thấy hoặc nghe BẤM! trên stream</p>
+          <p className="text-lg font-semibold text-neutral-300">Bấm đúng lúc thấy hoặc nghe BẤM! trên stream</p>
           <button
             type="button"
             onClick={() => void tap()}
-            className="min-h-[50vh] rounded-3xl bg-amber-500 text-7xl font-black text-slate-950 active:scale-95"
+            className="group flex drop-hard hard-pop-red motion-safe:transition-transform motion-safe:active:scale-95"
           >
-            BẤM
+            <span className="flex min-h-[50dvh] flex-1 items-center justify-center clip-slant bg-pop-lime text-8xl font-black text-pop-ink italic [--slant:24px] group-active:bg-pop-red group-active:text-pop-paper">
+              BẤM
+            </span>
           </button>
         </>
       )}
-      {error && (
-        <p role="alert" className="rounded-xl bg-red-500/15 p-3 text-red-200">
-          {error}
-        </p>
-      )}
+      {error && <Callout tone="error">{error}</Callout>}
     </section>
   )
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { Callout } from '../components/Callout'
 import { CLOSED_MESSAGES, errorMessage, type PlayerSnapshot, type RejoinAck } from '../lib/protocol'
 import { clearRoomAuth, loadRoomAuth } from '../lib/roomAuth'
 import { emitAck } from '../lib/socket'
@@ -56,24 +57,28 @@ function Play({ code }: { code: string }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-4 p-4">
-      {snapshot ? (
-        <>
-          <header className="flex items-center justify-between text-slate-300">
-            <span className="font-bold text-white">{snapshot.me.name}</span>
-            <span className="font-mono">{snapshot.me.score.toLocaleString('vi-VN')} điểm</span>
-          </header>
-          {!snapshot.hostOnline && (
-            <p role="status" className="rounded-xl bg-amber-500/15 p-3 text-amber-200">
-              Quản trò mất kết nối, đang chờ…
-            </p>
-          )}
-          <PhaseView snapshot={snapshot} offset={offset} />
-        </>
-      ) : (
-        <p className="py-16 text-center text-xl text-slate-400">Đang vào phòng…</p>
-      )}
-    </main>
+    <div className="halftone-strong min-h-dvh">
+      <main className="mx-auto flex min-h-dvh max-w-lg flex-col gap-4 p-4">
+        {snapshot ? (
+          <>
+            <header className="flex items-center justify-between gap-3">
+              <span className="truncate text-xl font-semibold">{snapshot.me.name}</span>
+              <span className="shrink-0 -skew-x-12 bg-pop-lime px-3 py-0.5 text-xl font-black text-pop-ink italic tabular-nums">
+                {snapshot.me.score.toLocaleString('vi-VN')} điểm
+              </span>
+            </header>
+            {!snapshot.hostOnline && (
+              <Callout tone="warn" role="status">
+                Quản trò mất kết nối, đang chờ…
+              </Callout>
+            )}
+            <PhaseView snapshot={snapshot} offset={offset} />
+          </>
+        ) : (
+          <p className="py-16 text-center text-xl text-neutral-400">Đang vào phòng…</p>
+        )}
+      </main>
+    </div>
   )
 }
 
