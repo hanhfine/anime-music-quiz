@@ -1,7 +1,7 @@
 # Thiết kế: Chơi theo đội
 
 - **Ngày:** 2026-10-17
-- **Trạng thái:** Đã duyệt thiết kế, chờ review spec
+- **Trạng thái:** Đã duyệt
 
 ## 1. Mục tiêu và phạm vi
 
@@ -224,12 +224,12 @@ PlayerResult.team: PlayerTeamResult | null
 - **`Podium`:** đổi kiểu prop sang `{ id, name, score, rank }[]`, để dùng được cho cả người chơi lẫn đội. Nơi gọi tự chuyển dữ liệu sang kiểu này.
 - **`AnswerTile`** thêm 2 prop tùy chọn:
   - `votes?: number`: huy hiệu "n phiếu" ở góc ô; ẩn khi 0.
-  - `teamMarks?: number[]`: chip `TeamChip sm` của các đội đã chọn ô này.
+  - `teamMarks?: { team: number; name: string }[]`: chip `TeamChip sm` (có tên) của các đội đã chọn ô này.
 
 ### 4.2 Màn quản trò
 
 - **LOBBY:**
-  - Nút gạt "CHƠI THƯỜNG | THEO ĐỘI" nằm trên danh sách người chơi.
+  - Nút gạt "Chơi thường | Theo đội" nằm trên danh sách người chơi.
   - Ở chế độ đội có thêm nút chọn số đội 2/3/4 và nút "Chia ngẫu nhiên".
   - Danh sách người chơi đổi thành các cột đội.
   - Đầu cột là `TeamChip md`. Bấm vào thì thành ô nhập: Enter hoặc rời ô là lưu, Esc là hủy.
@@ -244,7 +244,7 @@ PlayerResult.team: PlayerTeamResult | null
 
 ### 4.3 Điện thoại
 
-- **Đầu trang:** chip điểm đổi thành `TeamChip` kèm tên đội và điểm đội.
+- **Đầu trang:** thêm `TeamChip sm` ghi tên đội cạnh chip điểm; chip điểm hiện điểm đội.
 - **LOBBY:**
   - Dưới "Bạn là ___" có danh sách đội. Mỗi đội là một nút vát chéo màu đội, ghi tên đội và tên các thành viên.
   - Đội của mình có nhãn "ĐỘI CỦA BẠN". Bấm đội khác là gửi `player:choose_team`.
