@@ -104,7 +104,7 @@ Cách làm: khai báo token trong `@theme` của Tailwind v4, viết vài utilit
 |---|---|
 | `disc-spin` | xoay 0 → 360° |
 | `note-fly` | từ tâm (`translate(-50%, -50%) scale(0.4)`, mờ) bay tới `translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.3) rotate(var(--rot))` rồi mờ dần; rõ nhất ở mốc 15% |
-| `bolt-flash` | ẩn; hiện ở 8–14%; nháy mờ còn 0.2 ở 10% |
+| `bolt-flash` | ẩn; hiện ở 8–14%; nháy mờ còn 0.2 ở 10%. Với `steps(1)` mỗi đoạn giữ giá trị đầu đoạn, nên keyframes là `0%, 14%, 100% { opacity: 0 } 8%, 12% { opacity: 1 } 10% { opacity: 0.2 }` |
 | `slam` | từ `scale(1.4) rotate(-4deg)` và mờ hẳn về `scale(1) rotate(0)` và hiện rõ |
 
 - **Hover** (chuột) và **active** (chạm) trên phần tử bấm được:
@@ -204,9 +204,9 @@ Mỗi ô có thêm chuỗi class cho hover, active và chosen, ví dụ `group-e
 
 ### 3.3 `PopButton`, `PopLink`, `popButtonClasses`
 
-File `components/PopButton.tsx`.
+File `components/PopButton.tsx`; `popButtonClasses` nằm riêng ở `components/popButtonClasses.ts` (rule oxlint `react/only-export-components`).
 
-- `popButtonClasses(variant, size)` trả về `{ outer, inner }`. `PopButton` (`<button>`, mặc định `type="button"`) và `PopLink` (bọc `Link` của react-router) đều dùng hàm này. Nhãn "Nhập file JSON" ở trang danh sách bộ cũng dùng nó để trông giống nút.
+- `popButtonClasses(variant, size)` trả về `{ outer, frame, face }` (lớp `frame` mang viền theo cạnh vát của biến thể `secondary`). `PopButton` (`<button>`, mặc định `type="button"`) và `PopLink` (bọc `Link` của react-router) đều dùng hàm này. Nhãn "Nhập file JSON" ở trang danh sách bộ cũng dùng nó để trông giống nút.
 - Biến thể:
 
   | `variant` | Mặt | Hover/active | Bóng |
@@ -325,7 +325,7 @@ File `components/Callout.tsx`.
   - mỗi số render với `key={step}` và `motion-safe:animate-slam`, để số nào cũng "đập" vào.
 - **BẤM!**:
   - chữ vàng chanh, cỡ như trên;
-  - nằm trên một hình nổ răng cưa 12 cánh màu đỏ (SVG `aria-hidden`);
+  - nằm trên một hình nổ răng cưa 12 cánh màu đỏ (component `Burst`, SVG `aria-hidden`);
   - cũng có `animate-slam`.
 - Dòng "x/y người đã bấm" và dòng hướng dẫn giữ nguyên.
 
@@ -364,9 +364,11 @@ File `components/Callout.tsx`.
 
 | Layout | Class |
 |---|---|
-| `hidden` | `invisible left-1/2 top-1/2 h-[180px] w-[320px] -translate-x-1/2 -translate-y-1/2` |
-| `small` | `left-1/2 top-1/2 h-[180px] w-[320px] -translate-x-1/2 -translate-y-1/2` |
-| `large` | `left-6 top-20 aspect-video w-[56vw] translate-x-0 translate-y-0 border-4 border-pop-paper shadow-[10px_10px_0_var(--color-pop-red)]` |
+| `hidden` | `invisible left-[calc(50%-160px)] top-[calc(50%-90px)] h-[180px] w-[320px]` |
+| `small` | `left-[calc(50%-160px)] top-[calc(50%-90px)] h-[180px] w-[320px]` |
+| `large` | `left-6 top-20 h-[31.5vw] w-[56vw] border-4 border-pop-paper shadow-[10px_10px_0_var(--color-pop-red)]` |
+
+- Đặt giữa bằng `calc` thay vì `translate`: phần tử con của một phần tử có `transform` coi `background-attachment: fixed` như `scroll`, nên lớp phủ `halftone-strong` sẽ lệch khỏi nền trang. `h-[31.5vw]` (= 56vw × 9/16) thay `aspect-video` để chiều cao chuyển động mượt.
 
 - Khung chung: `fixed z-10 overflow-hidden bg-pop-ink motion-safe:transition-all motion-safe:duration-700`. Bỏ `rounded-2xl` và `shadow-2xl`.
 - Lúc PREPARING và ANSWERING, khung 320×180 nằm **ngay dưới đĩa** (đĩa ở `z-20`). Ở 1280×720, đĩa rộng khoảng 432px, đủ che hình chữ nhật 320×180 (đường chéo khoảng 367px).
@@ -484,7 +486,7 @@ File `components/Callout.tsx`.
     - `layout="stack"` đặt chữ cái lên trên.
   - `PopButton`: khi `disabled`, bấm không gọi `onClick`; tên truy cập là nội dung chữ.
   - `Callout`: `role` mặc định `alert`, đổi được sang `status`.
-  - `HostScreen`: khung YouTube ở layout `small` có class đặt giữa màn hình (`left-1/2`, `top-1/2`).
+  - `HostScreen`: khung YouTube ở layout `small` có class đặt giữa màn hình (`left-[calc(50%-160px)]`, `top-[calc(50%-90px)]`).
 
 **Lệnh kiểm tra:** `npm test && npx tsc -b && npm run lint`, rồi `npm run e2e`, rồi `npm run build` (để `backend/app/static` lại là bản thật).
 
@@ -511,9 +513,11 @@ File `components/Callout.tsx`.
 | `src/components/tiles.ts` | bảng màu A, chuỗi class mặt, màu cặp, bóng |
 | `src/components/AnswerTile.tsx` | cấu trúc 2 lớp, chữ cái, tem, `layout` |
 | `src/components/CdDisc.tsx` | **mới**, thay `CountdownRing.tsx` (**xóa**) |
-| `src/components/PopButton.tsx` | **mới**: `PopButton`, `PopLink`, `popButtonClasses` |
+| `src/components/PopButton.tsx` | **mới**: `PopButton`, `PopLink` |
+| `src/components/popButtonClasses.ts` | **mới**: `popButtonClasses`, `PopVariant`, `PopSize` |
 | `src/components/PopPanel.tsx` | **mới**: `PopPanel`, `PopChip` |
 | `src/components/Callout.tsx` | **mới** |
+| `src/components/Burst.tsx` | **mới**: hình nổ 12 cánh cho màn đo độ trễ và băng "Đúng!" |
 | `src/components/Leaderboard.tsx`, `Podium.tsx`, `DelayBadge.tsx` | đổi giao diện |
 | `src/components/CreateRoomPanel.tsx`, `SongRow.tsx` | đổi giao diện |
 | `src/pages/HostScreen.tsx` | nền, thanh trên cùng, thông báo, `STAGE_CLASSES`, lớp phủ |
