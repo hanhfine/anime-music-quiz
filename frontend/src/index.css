@@ -1,10 +1,105 @@
 @import 'tailwindcss';
 
+@theme {
+  --color-pop-ink: #0b0b0b;
+  --color-pop-paper: #fbfbf4;
+  --color-pop-red: #e8112d;
+  --color-pop-lime: #e4ff1a;
+
+  --font-sans: 'Barlow Condensed', system-ui, sans-serif;
+
+  --animate-disc-spin: disc-spin 2.4s linear infinite;
+  --animate-note-fly: note-fly 2.2s ease-out infinite;
+  --animate-bolt-flash: bolt-flash 1.6s steps(1) infinite;
+  --animate-slam: slam 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+
+  @keyframes disc-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Nốt nhạc bay từ tâm ra theo --dx, --dy, --rot của từng nốt. */
+  @keyframes note-fly {
+    0% {
+      transform: translate(-50%, -50%) scale(0.4);
+      opacity: 0;
+    }
+    15% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.3) rotate(var(--rot));
+      opacity: 0;
+    }
+  }
+
+  /* steps(1): mỗi đoạn giữ giá trị đầu đoạn, nên tia chớp chỉ hiện từ 8% tới 14%. */
+  @keyframes bolt-flash {
+    0%,
+    14%,
+    100% {
+      opacity: 0;
+    }
+    8%,
+    12% {
+      opacity: 1;
+    }
+    10% {
+      opacity: 0.2;
+    }
+  }
+
+  @keyframes slam {
+    from {
+      transform: scale(1.4) rotate(-4deg);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1) rotate(0);
+      opacity: 1;
+    }
+  }
+}
+
+/* Đổi độ vát bằng [--slant:8px]. */
+@utility clip-slant {
+  clip-path: polygon(var(--slant, 14px) 0, 100% 0, calc(100% - var(--slant, 14px)) 100%, 0 100%);
+}
+
+/* Đặt trên phần tử bọc ngoài lớp clip-slant: clip-path cắt mất bóng của chính phần tử đó. */
+@utility drop-hard {
+  filter: drop-shadow(5px 5px 0 var(--hard-color, var(--color-pop-ink)));
+}
+
+@utility hard-* {
+  --hard-color: --value(--color-*);
+}
+
+/* background-attachment: fixed để mọi phần tử cùng nền có chấm và dải đỏ trùng khít nhau. */
+@utility halftone {
+  background-color: var(--color-pop-ink);
+  background-image: radial-gradient(rgb(255 255 255 / 0.08) 1.2px, transparent 1.4px);
+  background-size: 10px 10px;
+  background-attachment: fixed;
+}
+
+@utility halftone-strong {
+  background-color: var(--color-pop-ink);
+  background-image:
+    linear-gradient(115deg, transparent 0 64%, rgb(232 17 45 / 0.85) 64% 71%, transparent 71%),
+    radial-gradient(rgb(255 255 255 / 0.15) 1.4px, transparent 1.6px);
+  background-size:
+    100% 100%,
+    9px 9px;
+  background-attachment: fixed;
+}
+
 :root {
   color-scheme: dark;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
-  @apply min-h-screen bg-slate-950 text-slate-100;
+  @apply halftone min-h-screen text-lg text-pop-paper;
+  -webkit-tap-highlight-color: transparent;
 }
