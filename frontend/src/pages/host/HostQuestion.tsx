@@ -5,6 +5,7 @@ import { Leaderboard } from '../../components/Leaderboard'
 import { PopButton } from '../../components/PopButton'
 import type { PopSize } from '../../components/popButtonClasses'
 import { PopChip } from '../../components/PopPanel'
+import { TeamBoard } from '../../components/TeamBoard'
 import { remainingMs } from '../../lib/clock'
 import { GRACE_MS, type HostRound, type HostSnapshot } from '../../lib/protocol'
 import { useNow } from '../../lib/useNow'
@@ -71,6 +72,14 @@ export function HostQuestion({ snapshot, round, offset }: Props) {
   }
 
   if (reveal) {
+    const { teams } = snapshot
+    const picks = reveal.teamPicks ?? []
+    // Chip các đội chốt ô i. Đội hòa hoặc không ai bỏ phiếu có option null nên không gắn lên ô nào.
+    const teamMarks = (i: number) =>
+      teams
+        ? picks.filter((pick) => pick.option === i).map((pick) => ({ team: pick.team, name: teams[pick.team].name }))
+        : undefined
+    const tiedTeams = picks.filter((pick) => pick.tied).map((pick) => pick.team)
     return (
       // Cột cố định bên phải khung video (HostScreen đặt khung ở left-6 top-20, rộng 56vw), cao vừa màn hình:
       // bảng xếp hạng dài thì cuộn bên trong, nút "Câu tiếp" luôn nằm trong màn hình.
@@ -87,7 +96,7 @@ export function HostQuestion({ snapshot, round, offset }: Props) {
             {reveal.songLabel}
           </PopChip>
         )}
-        <div className="grid gap-2 text-xl">
+        <div className={`grid text-xl ${teams ? 'gap-5' : 'gap-2'}`}>
           {round.options.map((label, i) => (
             <AnswerTile
               key={i}
@@ -95,11 +104,16 @@ export function HostQuestion({ snapshot, round, offset }: Props) {
               label={label}
               state={i === reveal.correctIndex ? 'correct' : 'dimmed'}
               count={reveal.optionCounts[i]}
+              teamMarks={teamMarks(i)}
             />
           ))}
         </div>
         <div className="min-h-0 overflow-y-auto [scrollbar-width:thin]">
-          <Leaderboard rows={snapshot.leaderboard.slice(0, 10)} />
+          {teams ? (
+            <TeamBoard teams={teams} tiedTeams={tiedTeams} />
+          ) : (
+            <Leaderboard rows={snapshot.leaderboard.slice(0, 10)} />
+          )}
         </div>
         {errorBox}
         <div className="flex flex-wrap items-center gap-6">
@@ -119,7 +133,7 @@ export function HostQuestion({ snapshot, round, offset }: Props) {
           Câu {number}
         </PopChip>
         <PopChip as="p" tone="red" className="text-3xl">
-          {round.answeredCount}/{round.onlineCount} đã trả lời
+          {round.answeredCount}/{round.onlineCount} {snapshot.teams ? 'đã bỏ phiếu' : 'đã trả lời'}
         </PopChip>
       </div>
       <Disc

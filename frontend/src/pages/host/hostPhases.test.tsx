@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { beep } from '../../lib/beep'
-import type { HostPlayer, LeaderboardRow } from '../../lib/protocol'
+import type { HostPlayer, HostTeam, LeaderboardRow } from '../../lib/protocol'
 import { installFakeSocket } from '../../test/fakeSocket'
 import { hostRound, hostSnapshot } from '../../test/snapshots'
 import { HostCalibration } from './HostCalibration'
@@ -29,6 +29,12 @@ const reveal = {
   songLabel: 'OP1 · Guren no Yumiya',
   teamPicks: null,
 }
+
+const hostTeams: HostTeam[] = [
+  { index: 0, name: 'Đội Đỏ', score: 0, rank: 3, gained: 0, memberIds: ['p1'] },
+  { index: 1, name: 'Đội Chanh', score: 900, rank: 1, gained: 900, memberIds: ['p2'] },
+  { index: 2, name: 'Đội Trắng', score: 900, rank: 1, gained: 0, memberIds: ['p3'] },
+]
 
 afterEach(() => {
   vi.useRealTimers()
@@ -181,6 +187,42 @@ describe('HostQuestion', () => {
     expect(column).toHaveClass('fixed', 'top-20', 'bottom-6')
     expect(column).toContainElement(screen.getByRole('button', { name: 'Câu tiếp →' }))
   })
+
+  it('counts votes instead of answers in team mode', () => {
+    const round = hostRound({ deadline: Date.now() + 18_000, answeredCount: 1, onlineCount: 3 })
+    render(
+      <HostQuestion snapshot={hostSnapshot({ phase: 'ANSWERING', round, teams: hostTeams })} round={round} offset={0} />,
+    )
+    expect(screen.getByText('1/3 đã bỏ phiếu')).toBeInTheDocument()
+  })
+
+  it('marks each tile with the teams that picked it and ranks the teams', () => {
+    const teamPicks = [
+      { team: 0, option: null, tied: true, gained: 0 },
+      { team: 1, option: 0, tied: false, gained: 900 },
+      { team: 2, option: 1, tied: false, gained: 0 },
+    ]
+    const round = hostRound({ reveal: { ...reveal, teamPicks } })
+    const { container } = render(
+      <HostQuestion
+        snapshot={hostSnapshot({ phase: 'REVEAL', round, leaderboard, teams: hostTeams })}
+        round={round}
+        offset={0}
+      />,
+    )
+    const tiles = [...container.querySelectorAll<HTMLElement>('[data-state]')]
+    expect(within(tiles[0]).getByText('Đội Chanh')).toBeInTheDocument()
+    expect(within(tiles[1]).getByText('Đội Trắng')).toBeInTheDocument()
+    for (const tile of tiles) expect(within(tile).queryByText('Đội Đỏ')).not.toBeInTheDocument()
+
+    const board = screen.getByRole('list', { name: 'Bảng xếp hạng đội' })
+    expect(within(board).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      '1Đội Chanh+900900',
+      '1Đội Trắng900',
+      '3Đội ĐỏHÒA0',
+    ])
+    expect(screen.queryByText('Mai')).not.toBeInTheDocument()
+  })
 })
 
 describe('HostFinished', () => {
@@ -196,5 +238,14 @@ describe('HostFinished', () => {
     expect(socket.payloads('host:play_again')).toEqual([{}])
     await userEvent.click(screen.getByRole('button', { name: 'Đóng phòng' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the team podium and the team board in team mode', () => {
+    render(<HostFinished snapshot={hostSnapshot({ phase: 'FINISHED', leaderboard, teams: hostTeams })} onClose={vi.fn()} />)
+    const podium = screen.getByRole('list', { name: 'Bục vinh quang' })
+    expect(within(within(podium).getByText('Đội Chanh').closest('li')!).getByText('1')).toBeInTheDocument()
+    expect(within(within(podium).getByText('Đội Đỏ').closest('li')!).getByText('3')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Bảng xếp hạng đội' })).toBeInTheDocument()
+    expect(screen.queryByText('Mai')).not.toBeInTheDocument()
   })
 })

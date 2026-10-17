@@ -272,4 +272,17 @@ describe('PlayerFinished', () => {
     expect(within(within(podium).getByText('Long').closest('li')!).getByText('1')).toBeInTheDocument()
     expect(container.querySelector('[data-me="true"]')).toHaveTextContent('Mai')
   })
+
+  it('shows my team rank, the team score and the team board in team mode', () => {
+    const finalTeams = [
+      playerTeam(0, 'Đội Đỏ', ['Mai', 'An'], { score: 300, rank: 2 }),
+      playerTeam(1, 'Đội Chanh', ['Long'], { score: 900, rank: 1 }),
+    ]
+    render(<PlayerFinished snapshot={playerSnapshot({ phase: 'FINISHED', me: teamMe, teams: finalTeams })} />)
+    expect(screen.getByText('Đội Đỏ · Hạng 2/2')).toBeInTheDocument()
+    expect(screen.getByText('300 điểm')).toBeInTheDocument()
+    const board = screen.getByRole('list', { name: 'Bảng xếp hạng đội' })
+    expect(within(board).getByText('Đội Đỏ').closest('li')).toHaveAttribute('data-me', 'true')
+    expect(within(screen.getByRole('list', { name: 'Bục vinh quang' })).getByText('Đội Chanh')).toBeInTheDocument()
+  })
 })
