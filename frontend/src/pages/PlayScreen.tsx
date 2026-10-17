@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Callout } from '../components/Callout'
+import { TeamChip } from '../components/TeamChip'
 import { CLOSED_MESSAGES, errorMessage, type PlayerSnapshot, type RejoinAck } from '../lib/protocol'
 import { clearRoomAuth, loadRoomAuth } from '../lib/roomAuth'
 import { emitAck } from '../lib/socket'
 import { useRoomSnapshot } from '../lib/useRoomSnapshot'
 import { JoinForm } from './play/JoinForm'
+import { myTeam } from './play/myTeam'
 import { PlayerCalibration } from './play/PlayerCalibration'
 import { PlayerFinished } from './play/PlayerFinished'
 import { PlayerLobby } from './play/PlayerLobby'
@@ -52,6 +54,8 @@ function Play({ code }: { code: string }) {
     if (closedReason) leave(CLOSED_MESSAGES[closedReason])
   }, [closedReason, leave])
 
+  const team = snapshot && myTeam(snapshot)
+
   if (!joined) {
     return <JoinForm code={code} message={message} onJoined={() => setJoined(true)} />
   }
@@ -62,9 +66,12 @@ function Play({ code }: { code: string }) {
         {snapshot ? (
           <>
             <header className="flex items-center justify-between gap-3">
-              <span className="truncate text-xl font-semibold">{snapshot.me.name}</span>
-              <span className="shrink-0 -skew-x-12 bg-pop-lime px-3 py-0.5 text-xl font-black text-pop-ink italic tabular-nums">
-                {snapshot.me.score.toLocaleString('vi-VN')} điểm
+              <span className="min-w-0 truncate text-xl font-semibold">{snapshot.me.name}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                {team && <TeamChip team={team.index} name={team.name} size="sm" />}
+                <span className="shrink-0 -skew-x-12 bg-pop-lime px-3 py-0.5 text-xl font-black text-pop-ink italic tabular-nums">
+                  {(team?.score ?? snapshot.me.score).toLocaleString('vi-VN')} điểm
+                </span>
               </span>
             </header>
             {!snapshot.hostOnline && (

@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { LeaderboardRow } from '../../lib/protocol'
+import type { LeaderboardRow, PlayerTeam } from '../../lib/protocol'
 import { loadRoomAuth } from '../../lib/roomAuth'
 import { setSocketForTests } from '../../lib/socket'
 import { installFakeSocket } from '../../test/fakeSocket'
@@ -22,6 +22,19 @@ const result = {
   songLabel: 'OP1 · Guren no Yumiya',
   team: null,
 }
+
+const playerTeam = (index: number, name: string, members: string[], patch: Partial<PlayerTeam> = {}): PlayerTeam => ({
+  index,
+  name,
+  score: 0,
+  rank: 1,
+  gained: null,
+  members,
+  ...patch,
+})
+
+const teams = [playerTeam(0, 'Đội Đỏ', ['Mai', 'An']), playerTeam(1, 'Đội Chanh', [])]
+const teamMe = { id: 'p1', name: 'Mai', score: 0, rank: 1, delayMs: 0, calibrated: false, team: 0 }
 
 afterEach(() => {
   setSocketForTests(null)
@@ -69,6 +82,36 @@ describe('PlayerLobby', () => {
     expect(screen.getByText('Chờ quản trò bắt đầu…')).toBeInTheDocument()
     expect(screen.getByText('5 người trong phòng')).toBeInTheDocument()
     expect(screen.getByText('1.2s')).toBeInTheDocument()
+  })
+
+  it('lists the teams with their members and moves me to another team', async () => {
+    const socket = installFakeSocket()
+    render(<PlayerLobby snapshot={playerSnapshot({ me: teamMe, teams })} />)
+    const picker = screen.getByRole('list', { name: 'Chọn đội' })
+    const red = within(picker).getByRole('button', { name: 'Đội Đỏ' })
+    expect(red).toHaveAttribute('aria-pressed', 'true')
+    expect(red).toHaveTextContent('ĐỘI CỦA BẠN')
+    expect(red).toHaveTextContent('Mai, An')
+    const lime = within(picker).getByRole('button', { name: 'Đội Chanh' })
+    expect(lime).toHaveAttribute('aria-pressed', 'false')
+    expect(lime).toHaveTextContent('Chưa có ai')
+
+    await userEvent.click(red)
+    await userEvent.click(lime)
+    expect(socket.payloads('player:choose_team')).toEqual([{ team: 1 }])
+  })
+
+  it('explains why a team change failed', async () => {
+    const socket = installFakeSocket()
+    socket.reply('player:choose_team', { ok: false, error: 'INVALID_STATE' })
+    render(<PlayerLobby snapshot={playerSnapshot({ me: teamMe, teams })} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Đội Chanh' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Thao tác không hợp lệ lúc này')
+  })
+
+  it('has no team picker in normal play', () => {
+    render(<PlayerLobby snapshot={playerSnapshot()} />)
+    expect(screen.queryByRole('list', { name: 'Chọn đội' })).not.toBeInTheDocument()
   })
 })
 

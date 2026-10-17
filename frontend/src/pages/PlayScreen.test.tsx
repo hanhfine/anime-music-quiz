@@ -113,4 +113,15 @@ describe('PlayScreen', () => {
     push({ phase: 'ANSWERING', round: playerRound({ options, deadline: deadline + 5000 }) })
     expect(screen.getByRole('button', { name: 'A: Shingeki no Kyojin' })).toBeEnabled()
   })
+
+  it('shows my team and the team score in the header', () => {
+    const { push } = setup({ token: 'player-token' })
+    const teams = [
+      { index: 0, name: 'Đội Đỏ', score: 0, rank: 2, gained: null, members: ['An'] },
+      { index: 1, name: 'Đội Chanh', score: 1200, rank: 1, gained: null, members: ['Mai'] },
+    ]
+    push({ phase: 'PREPARING', round: playerRound(), me: { ...playerSnapshot().me, team: 1 }, teams })
+    expect(screen.getByText('Đội Chanh')).toBeInTheDocument()
+    expect(screen.getByText('1.200 điểm')).toBeInTheDocument()
+  })
 })

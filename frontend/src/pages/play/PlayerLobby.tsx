@@ -2,6 +2,7 @@ import { CdDisc } from '../../components/CdDisc'
 import { DelayBadge } from '../../components/DelayBadge'
 import { PopChip } from '../../components/PopPanel'
 import type { PlayerSnapshot } from '../../lib/protocol'
+import { TeamPicker } from './TeamPicker'
 
 export function PlayerLobby({ snapshot }: { snapshot: PlayerSnapshot }) {
   const { me, playerCount } = snapshot
@@ -13,6 +14,7 @@ export function PlayerLobby({ snapshot }: { snapshot: PlayerSnapshot }) {
       <p className="max-w-full text-5xl font-black break-words text-pop-lime italic [text-shadow:4px_4px_0_var(--color-pop-red)]">
         {me.name}
       </p>
+      {snapshot.teams && <TeamPicker teams={snapshot.teams} myTeam={me.team} />}
       <p className="flex items-center gap-3 text-2xl font-semibold">
         <CdDisc size="sm" />
         Chờ quản trò bắt đầu…
