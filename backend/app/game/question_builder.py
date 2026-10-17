@@ -1,5 +1,6 @@
 """Sinh câu hỏi: chọn bài, chọn đoạn clip, chọn đáp án nhiễu. Logic thuần, rng truyền vào."""
 
+from collections.abc import Callable
 from math import ceil, floor
 from random import Random
 
@@ -8,6 +9,30 @@ from app.game.models import Question, Settings, Song
 
 def _norm(name: str) -> str:
     return name.strip().casefold()
+
+
+def _keys(name: str) -> list[str]:
+    key = _norm(name)
+    if not key.endswith(")") or " (" not in key:
+        return [key]
+    romaji, english = key[:-1].split(" (", 1)
+    return [key, romaji.strip(), english.strip()]
+
+
+def _same_anime(names: list[str]) -> Callable[[str], str]:
+    """Gom các cách gọi một bộ: "Romaji (English)" nối "Romaji" với "English". Trả về hàm tên -> mã nhóm."""
+    parent: dict[str, str] = {}
+
+    def find(key: str) -> str:
+        while parent.setdefault(key, key) != key:
+            key = parent[key]
+        return key
+
+    for name in names:
+        first, *rest = _keys(name)
+        for key in rest:
+            parent[find(key)] = find(first)
+    return lambda name: find(_norm(name))
 
 
 def clip_window(song: Song, clip_sec: int, reveal_sec: int, rng: Random) -> tuple[float, float, int]:
@@ -30,20 +55,21 @@ def build_options(
 ) -> tuple[tuple[str, ...], int]:
     """4 đáp án đã xáo trộn và vị trí đáp án đúng."""
     answer = correct.strip()
-    taken = {_norm(answer)}
-    others: list[str] = []
-    for name in set_names:
-        if _norm(name) not in taken:
-            taken.add(_norm(name))
-            others.append(name.strip())
+    group = _same_anime([answer, *set_names, *popular])
+    taken = {group(answer)}
+
+    def fresh(names: list[str]) -> list[str]:
+        out = []
+        for name in names:
+            if group(name) not in taken:
+                taken.add(group(name))
+                out.append(name.strip())
+        return out
+
+    others = fresh(set_names)
     distractors = rng.sample(others, min(3, len(others)))
     if len(distractors) < 3:
-        extras: list[str] = []
-        for name in popular:
-            if _norm(name) not in taken:
-                taken.add(_norm(name))
-                extras.append(name.strip())
-        distractors += rng.sample(extras, 3 - len(distractors))
+        distractors += rng.sample(fresh(popular), 3 - len(distractors))
     options = [answer, *distractors]
     rng.shuffle(options)
     return tuple(options), options.index(answer)

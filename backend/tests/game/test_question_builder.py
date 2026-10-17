@@ -1,5 +1,7 @@
 from random import Random
 
+import pytest
+
 from app.data.popular import load_popular_anime
 from app.game.models import Settings, Song
 from app.game.question_builder import build_game, build_options, clip_window
@@ -54,6 +56,20 @@ def test_distractors_dedupe_by_casefold_and_fill_from_popular():
     assert set(keys) <= {"naruto", "bleach", "one piece", "gintama", "haikyuu"}
 
 
+TITAN = ["Shingeki no Kyojin", "Shingeki no Kyojin (Attack on Titan)", "Attack on Titan"]
+
+
+@pytest.mark.parametrize("correct", TITAN)
+def test_distractors_skip_the_same_anime_under_another_name(correct):
+    set_names = [*TITAN, "Hunter x Hunter"]
+    popular = ["Shingeki no Kyojin (Attack on Titan)", "Hunter x Hunter (2011)", "One Piece", "Gintama", "Haikyuu!!"]
+    for seed in range(20):
+        options, index = build_options(correct, set_names, popular, Random(seed))
+        assert options[index] == correct
+        assert [o for o in options if o in TITAN] == [correct]
+        assert "Hunter x Hunter" in options and "Hunter x Hunter (2011)" not in options
+
+
 def test_random_start_stays_inside_window():
     song = make_song(0, duration=200)
     for seed in range(50):
@@ -89,3 +105,9 @@ def test_end_without_reveal_is_clip_end():
 def test_popular_file_has_enough_unique_names():
     names = load_popular_anime()
     assert len({n.casefold() for n in names}) >= 150
+
+
+def test_popular_names_carry_the_english_name_when_it_differs():
+    names = load_popular_anime()
+    assert "Shingeki no Kyojin (Attack on Titan)" in names
+    assert "One Piece" in names
