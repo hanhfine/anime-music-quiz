@@ -4,7 +4,7 @@ import secrets
 from random import Random
 
 from app.game import calibration
-from app.game.constants import NAME_MAX_LEN
+from app.game.constants import NAME_MAX_LEN, TEAM_COUNTS, TEAM_DEFAULT_NAMES
 from app.game.models import (
     Answer,
     CalibState,
@@ -15,10 +15,12 @@ from app.game.models import (
     RoundState,
     Settings,
     Song,
+    Team,
     Timing,
 )
 from app.game.question_builder import build_game, build_question
 from app.game.scoring import answer_deadline, competition_ranks, effective_time_ms, points
+from app.game.teams import balanced_assignment, smallest_team
 
 
 class Room:
@@ -43,6 +45,7 @@ class Room:
         self.timing = timing
         self.phase = Phase.LOBBY
         self.players: dict[str, Player] = {}
+        self.teams: list[Team] = []  # rỗng là chơi thường
         self.kicked_tokens: set[str] = set()
         self.host_online = True
         self.host_offline_since: int | None = None
@@ -72,6 +75,8 @@ class Room:
             player_id = secrets.token_hex(4)
         player = Player(id=player_id, token=secrets.token_urlsafe(16), name=clean)
         self.players[player.id] = player
+        if self.team_mode:
+            self._place_in_smallest_team(player)
         return player
 
     def player_by_token(self, token: str) -> Player:
@@ -110,6 +115,64 @@ class Room:
 
     def effective_delays(self) -> dict[str, int]:
         return calibration.effective_delays({pid: p.delay_ms for pid, p in self.players.items()})
+
+    # ---- chia đội ----
+
+    @property
+    def team_mode(self) -> bool:
+        return bool(self.teams)
+
+    def set_teams(self, count: int) -> None:
+        """0 là chơi thường; 2–4 là số đội. Đội giữ lại giữ tên và thành viên."""
+        self._require(Phase.LOBBY)
+        if count != 0 and count not in TEAM_COUNTS:
+            raise GameError("INVALID_STATE")
+        if count == 0:
+            self.teams = []
+            for player in self.players.values():
+                player.team = None
+            return
+        kept = self.teams[:count]
+        self.teams = kept + [Team(name) for name in TEAM_DEFAULT_NAMES[len(kept) : count]]
+        for player in self.players.values():
+            if player.team is not None and player.team >= count:
+                player.team = None
+        # Người chưa có đội (mới bật chế độ, hoặc đội vừa bị bỏ) được xếp theo thứ tự vào phòng.
+        for player in self.players.values():
+            if player.team is None:
+                self._place_in_smallest_team(player)
+
+    def shuffle_teams(self) -> None:
+        self._require_team_lobby()
+        assignment = balanced_assignment(list(self.players), len(self.teams), self.rng)
+        for player_id, team in assignment.items():
+            self.players[player_id].team = team
+
+    def move_player(self, player_id: str, team: int) -> None:
+        self._require_team_lobby()
+        player = self.players.get(player_id)
+        if player is None or not 0 <= team < len(self.teams):
+            raise GameError("INVALID_STATE")
+        player.team = team
+
+    def choose_team(self, player_id: str, team: int) -> None:
+        """Người chơi tự chuyển mình; luật giống quản trò chuyển người."""
+        self.move_player(player_id, team)
+
+    def rename_team(self, team: int, name: str) -> None:
+        self._require_team_lobby()
+        if not 0 <= team < len(self.teams):
+            raise GameError("INVALID_STATE")
+        clean = name.strip()
+        if not 1 <= len(clean) <= NAME_MAX_LEN:
+            raise GameError("INVALID_NAME")
+        self.teams[team].name = clean
+
+    def team_leaderboard(self) -> list[tuple[int, Team, int]]:
+        """(chỉ số đội, đội, hạng), sắp theo hạng rồi chỉ số đội."""
+        ranks = competition_ranks({index: team.score for index, team in enumerate(self.teams)})
+        rows = [(index, team, ranks[index]) for index, team in enumerate(self.teams)]
+        return sorted(rows, key=lambda row: (row[2], row[0]))
 
     # ---- đo độ trễ ----
 
@@ -182,6 +245,21 @@ class Room:
         if self.phase not in phases:
             raise GameError("INVALID_STATE")
 
+    def _require_team_lobby(self) -> None:
+        self._require(Phase.LOBBY)
+        if not self.team_mode:
+            raise GameError("INVALID_STATE")
+
+    def _team_sizes(self) -> list[int]:
+        sizes = [0] * len(self.teams)
+        for player in self.players.values():
+            if player.team is not None:
+                sizes[player.team] += 1
+        return sizes
+
+    def _place_in_smallest_team(self, player: Player) -> None:
+        player.team = smallest_team(self._team_sizes())
+
     def _maybe_reveal_early(self) -> None:
         """Sang REVEAL khi mọi người online đã trả lời (chỉ khi có ít nhất 1 người online)."""
         if self.phase is not Phase.ANSWERING:
@@ -201,6 +279,8 @@ class Room:
         self._require(Phase.LOBBY)
         if not self.players:
             raise GameError("INVALID_STATE")
+        if 0 in self._team_sizes():
+            raise GameError("EMPTY_TEAM")
         self.questions, self.spares = build_game(self.songs, self.settings, self.popular, self.rng)
         self._enter_round(0)
 

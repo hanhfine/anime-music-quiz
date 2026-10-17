@@ -74,6 +74,13 @@ class Player:
     online: bool = True
     delay_ms: int | None = None
     score: int = 0
+    team: int | None = None  # chỉ số trong Room.teams; None khi chơi thường
+
+
+@dataclass
+class Team:
+    name: str
+    score: int = 0
 
 
 @dataclass
