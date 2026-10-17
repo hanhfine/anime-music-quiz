@@ -61,6 +61,16 @@ describe('AnswerTile', () => {
     expect(screen.getByRole('button', { name: 'B: Naruto' }).outerHTML).toContain('hover:')
   })
 
+  it('darkens faded tiles but keeps them opaque so the background stripe stays behind', () => {
+    for (const state of ['dimmed', 'wrong'] as const) {
+      const { container, unmount } = render(<AnswerTile index={0} label="Naruto" state={state} />)
+      expect(container.querySelector('[class*="brightness-"]')).not.toBeNull()
+      expect(container.innerHTML).not.toMatch(/\bopacity-/)
+      expect(container.firstChild).toHaveClass('hard-neutral-800')
+      unmount()
+    }
+  })
+
   it('stamps only the correct and the wrong tile', () => {
     const { rerender } = render(<AnswerTile index={0} label="Naruto" state="correct" />)
     expect(screen.getByText('✓ Đúng')).toHaveAttribute('aria-hidden', 'true')
@@ -140,6 +150,14 @@ describe('CdDisc', () => {
     rerender(<CdDisc size="sm" remainingMs={4200} totalMs={18000} />)
     expect(container.querySelector('.stroke-pop-red')).not.toBeNull()
     expect(container.querySelector('.stroke-pop-lime')).toBeNull()
+  })
+
+  it('paints over the spindle hole only while a number sits on it', () => {
+    const timed = render(<CdDisc size="lg" remainingMs={9000} totalMs={18000} />)
+    expect(timed.container.querySelector('.disc-face')).toHaveClass('[--disc-hub:var(--color-pop-red)]')
+    timed.unmount()
+    const plain = render(<CdDisc size="lg" />)
+    expect(plain.container.querySelector('.disc-face')).not.toHaveClass('[--disc-hub:var(--color-pop-red)]')
   })
 })
 

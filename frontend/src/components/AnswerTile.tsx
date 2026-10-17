@@ -27,13 +27,14 @@ export function AnswerTile({ index, label, state = 'idle', count, disabled, layo
   const tile = TILES[index]
   const interactive = onSelect !== undefined
   const chosen = state === 'chosen'
-  // Mờ trên lớp viền: drop-hard đã chiếm thuộc tính filter của phần tử ngoài.
+  // Làm tối trên lớp viền (drop-hard đã chiếm thuộc tính filter của phần tử ngoài). Không dùng opacity:
+  // ô trong suốt để lộ dải chéo đỏ của nền, ô không ai chọn trông như ô sai.
   const faded = state === 'dimmed' || state === 'wrong'
 
   const outer = `group relative flex w-full text-left drop-hard motion-safe:transition-transform motion-safe:duration-150 ${
-    chosen ? tile.hardSwap : tile.hard
+    faded ? 'hard-neutral-800' : chosen ? tile.hardSwap : tile.hard
   } ${STATE_MOTION[state]} ${interactive ? `${tile.hardHover} ${HOVER_MOTION}` : ''}`
-  const frame = `flex flex-1 clip-slant p-[3px] ${tile.border} ${faded ? 'opacity-30 grayscale' : ''}`
+  const frame = `flex flex-1 clip-slant p-[3px] ${tile.border} ${faded ? 'brightness-[.35] grayscale' : ''}`
   const face = `flex min-w-0 flex-1 clip-slant transition-colors duration-150 ${chosen ? tile.swap : tile.face} ${
     interactive ? tile.faceHover : ''
   } ${layout === 'stack' ? 'flex-col justify-between gap-2 px-5 py-3' : 'items-center gap-3 py-3 pr-7 pl-6'}`

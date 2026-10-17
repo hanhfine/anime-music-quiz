@@ -40,7 +40,12 @@ export function CdDisc({ remainingMs, totalMs = 0, size, spin = true, className 
       aria-hidden={timed ? undefined : true}
       className={`@container relative aspect-square ${size === 'sm' ? 'size-16 shrink-0' : ''} ${className}`}
     >
-      <div className={`absolute inset-[9%] disc-face ${spin ? 'motion-safe:animate-disc-spin' : ''}`} />
+      {/* Có số đếm ngược thì lấp lỗ tâm, không thì lỗ lộ ra giữa các chữ số. */}
+      <div
+        className={`absolute inset-[9%] disc-face ${spin ? 'motion-safe:animate-disc-spin' : ''} ${
+          timed ? '[--disc-hub:var(--color-pop-red)]' : ''
+        }`}
+      />
       <svg viewBox="0 0 100 100" className="absolute inset-0 size-full -rotate-90">
         <circle cx="50" cy="50" r={RADIUS} fill="none" strokeWidth="6" className="stroke-neutral-800" />
         {timed && (

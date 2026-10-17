@@ -95,14 +95,15 @@
   background-attachment: fixed;
 }
 
-/* Mặt đĩa CD: nhãn giữa, vệt sáng, rãnh đĩa (lớp đầu nằm trên cùng). */
+/* Mặt đĩa CD: nhãn giữa, vệt sáng, rãnh đĩa (lớp đầu nằm trên cùng).
+   --disc-hub: tô kín lỗ tâm bằng một màu (dùng khi có số đếm ngược đè lên). */
 @utility disc-face {
   border-radius: 9999px;
   background:
     radial-gradient(
       circle,
-      var(--color-pop-paper) 0 6%,
-      var(--color-pop-ink) 6% 8%,
+      var(--disc-hub, var(--color-pop-paper)) 0 6%,
+      var(--disc-hub, var(--color-pop-ink)) 6% 8%,
       var(--color-pop-red) 8% 30%,
       var(--color-pop-ink) 30% 32%,
       transparent 32%
