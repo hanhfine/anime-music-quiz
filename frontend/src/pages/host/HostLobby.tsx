@@ -1,16 +1,18 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { Callout } from '../../components/Callout'
-import { DelayBadge } from '../../components/DelayBadge'
 import { PopButton } from '../../components/PopButton'
 import { PopChip, PopPanel } from '../../components/PopPanel'
 import type { HostPlayer, HostSnapshot } from '../../lib/protocol'
+import { TeamColumns, TeamModeBar } from './HostTeams'
+import { LobbyPlayer } from './LobbyPlayer'
 import { useHostCommand } from './useHostCommand'
 
 export function HostLobby({ snapshot }: { snapshot: HostSnapshot }) {
-  const { code, players, settings } = snapshot
+  const { code, players, settings, teams } = snapshot
   const { run, error, busy } = useHostCommand()
   const link = `${window.location.origin}/play/${code}`
   const onlineCount = players.filter((player) => player.online).length
+  const emptyTeam = teams?.some((team) => team.memberIds.length === 0) ?? false
 
   const kick = (player: HostPlayer) => {
     if (window.confirm(`Mời ${player.name} ra khỏi phòng?`)) void run('host:kick', { playerId: player.id })
@@ -37,29 +39,15 @@ export function HostLobby({ snapshot }: { snapshot: HostSnapshot }) {
         <PopChip as="h2" className="text-4xl">
           Người chơi ({players.length}/{settings.maxPlayers})
         </PopChip>
-        {players.length === 0 ? (
+        <TeamModeBar teams={teams} run={run} busy={busy} />
+        {teams ? (
+          <TeamColumns teams={teams} players={players} run={run} busy={busy} onKick={kick} />
+        ) : players.length === 0 ? (
           <p className="text-xl text-neutral-400">Chưa có ai vào phòng. Gửi mã hoặc link cho người chơi nhé!</p>
         ) : (
           <ul className="grid grid-cols-2 gap-3 xl:grid-cols-3">
             {players.map((player) => (
-              <li
-                key={player.id}
-                data-online={player.online}
-                className="clip-slant bg-pop-paper p-[2px] [--slant:10px] data-[online=false]:opacity-40"
-              >
-                <div className="flex items-center gap-2 clip-slant bg-neutral-950 px-5 py-2 text-xl font-semibold">
-                  <span className="flex-1 truncate">{player.name}</span>
-                  <DelayBadge delayMs={player.delayMs} calibrated={player.calibrated} />
-                  <button
-                    type="button"
-                    onClick={() => kick(player)}
-                    aria-label={`Mời ${player.name} ra khỏi phòng`}
-                    className="px-1 text-neutral-400 hover:text-pop-red"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </li>
+              <LobbyPlayer key={player.id} player={player} onKick={kick} />
             ))}
           </ul>
         )}
@@ -67,6 +55,7 @@ export function HostLobby({ snapshot }: { snapshot: HostSnapshot }) {
         <p className="text-lg text-neutral-400">
           {settings.questionCount} câu · nhạc {settings.clipSec} giây · công bố {settings.revealSec} giây
         </p>
+        {emptyTeam && <p className="font-semibold text-pop-red">Còn đội chưa có người</p>}
         {error && <Callout tone="error">{error}</Callout>}
         <div className="flex flex-wrap gap-6">
           <PopButton
@@ -77,7 +66,11 @@ export function HostLobby({ snapshot }: { snapshot: HostSnapshot }) {
           >
             Đo độ trễ
           </PopButton>
-          <PopButton size="lg" onClick={() => void run('host:start')} disabled={busy || players.length === 0}>
+          <PopButton
+            size="lg"
+            onClick={() => void run('host:start')}
+            disabled={busy || players.length === 0 || emptyTeam}
+          >
             Bắt đầu
           </PopButton>
         </div>
