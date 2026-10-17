@@ -139,3 +139,37 @@ async def test_creating_another_room_from_the_same_tab_detaches_the_old_one(serv
     assert first != second
     assert server.manager.get(first).host_online is False
     assert server.sessions["host"].code == second
+
+
+TEAM_EVENTS = {"host:set_teams", "host:shuffle_teams", "host:move_player", "host:rename_team", "player:choose_team"}
+
+
+def test_team_events_are_registered(server):
+    assert TEAM_EVENTS <= set(server.handlers)
+
+
+async def test_team_setup_flow(server, emits):
+    code = (await create_room(server))["code"]
+    await join(server, code, "Alice")
+    bob = (await join(server, code, "Bob"))["playerId"]
+    assert await server.handle("host:set_teams", "host", {"count": 2}) == {"ok": True}
+    assert [p["team"] for p in emits.last_state("host")["players"]] == [0, 1]
+    assert (await server.handle("host:rename_team", "host", {"team": 0, "name": "Mèo"}))["ok"]
+    assert (await server.handle("host:move_player", "host", {"playerId": bob, "team": 0}))["ok"]
+    assert (await server.handle("player:choose_team", "sid-Alice", {"team": 1}))["ok"]
+    assert [p["team"] for p in emits.last_state("host")["players"]] == [1, 0]
+    assert (await server.handle("host:shuffle_teams", "host"))["ok"]
+    alice_state = emits.last_state("sid-Alice")
+    assert alice_state["teams"][0]["name"] == "Mèo"
+    assert [len(team["members"]) for team in alice_state["teams"]] == [1, 1]
+    await server.handle("host:set_teams", "host", {"count": 3})
+    assert await server.handle("host:start", "host") == {"ok": False, "error": "EMPTY_TEAM"}
+
+
+async def test_team_events_check_payloads_and_roles(server):
+    code = (await create_room(server))["code"]
+    await join(server, code, "Alice")
+    assert (await server.handle("host:set_teams", "host", {"count": "2"}))["error"] == "INVALID_STATE"
+    for event in ("host:set_teams", "host:shuffle_teams", "host:move_player", "host:rename_team"):
+        assert (await server.handle(event, "sid-Alice", {"count": 2}))["error"] == "INVALID_TOKEN"
+    assert (await server.handle("player:choose_team", "host", {"team": 0}))["error"] == "INVALID_TOKEN"

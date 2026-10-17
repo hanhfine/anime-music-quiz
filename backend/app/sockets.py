@@ -295,3 +295,27 @@ class GameServer:
         room.answer(player_id, _int(data, "roundIndex"), _int(data, "optionIndex"), self.clock())
         await self._broadcast(room)
         return {}
+
+    # ---- chế độ đội (chỉ ở sảnh chờ) ----
+
+    async def host_set_teams(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.set_teams(_int(data, "count")))
+
+    async def host_shuffle_teams(self, sid: str, data: object) -> dict:
+        return await self._host_command(sid, lambda room: room.shuffle_teams())
+
+    async def host_move_player(self, sid: str, data: object) -> dict:
+        return await self._host_command(
+            sid, lambda room: room.move_player(_str(data, "playerId"), _int(data, "team"))
+        )
+
+    async def host_rename_team(self, sid: str, data: object) -> dict:
+        return await self._host_command(
+            sid, lambda room: room.rename_team(_int(data, "team"), _str(data, "name"))
+        )
+
+    async def player_choose_team(self, sid: str, data: object) -> dict:
+        room, player_id = self._player(sid)
+        room.choose_team(player_id, _int(data, "team"))
+        await self._broadcast(room)
+        return {}
