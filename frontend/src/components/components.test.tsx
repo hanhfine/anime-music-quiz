@@ -47,6 +47,38 @@ describe('AnswerTile', () => {
     expect(screen.getByText('One Piece').closest('[data-state]')).toHaveAttribute('data-state', 'correct')
     expect(screen.getByText('4')).toBeInTheDocument()
   })
+
+  it('shows its letter on the tile', () => {
+    render(<AnswerTile index={0} label="Naruto" />)
+    expect(screen.getByText('A')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('reacts to hover only when it can be picked', () => {
+    const { container, unmount } = render(<AnswerTile index={1} label="Naruto" />)
+    expect(container.innerHTML).not.toContain('hover:')
+    unmount()
+    render(<AnswerTile index={1} label="Naruto" onSelect={() => {}} />)
+    expect(screen.getByRole('button', { name: 'B: Naruto' }).outerHTML).toContain('hover:')
+  })
+
+  it('stamps only the correct and the wrong tile', () => {
+    const { rerender } = render(<AnswerTile index={0} label="Naruto" state="correct" />)
+    expect(screen.getByText('✓ Đúng')).toHaveAttribute('aria-hidden', 'true')
+    rerender(<AnswerTile index={0} label="Naruto" state="wrong" />)
+    expect(screen.getByText('✕')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByText('✓ Đúng')).not.toBeInTheDocument()
+    for (const state of ['idle', 'chosen', 'dimmed'] as const) {
+      rerender(<AnswerTile index={0} label="Naruto" state={state} />)
+      expect(screen.queryByText(/✓|✕/)).not.toBeInTheDocument()
+    }
+  })
+
+  it('stacks the letter above the name in the stack layout', () => {
+    const { rerender } = render(<AnswerTile index={2} label="Bleach" layout="stack" />)
+    expect(screen.getByText('C').parentElement).toHaveClass('flex-col')
+    rerender(<AnswerTile index={2} label="Bleach" />)
+    expect(screen.getByText('C').parentElement).not.toHaveClass('flex-col')
+  })
 })
 
 describe('Leaderboard', () => {
