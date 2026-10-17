@@ -6,6 +6,7 @@ describe('errorMessage', () => {
     expect(errorMessage('ROOM_NOT_FOUND')).toBe('Phòng không còn tồn tại')
     expect(errorMessage('NAME_TAKEN')).toBe('Tên này đã có người dùng trong phòng')
     expect(errorMessage('NETWORK')).toBe('Mất kết nối tới server, thử lại nhé')
+    expect(errorMessage('EMPTY_TEAM')).toBe('Còn đội chưa có người')
   })
 
   it('falls back to a generic message for unknown codes', () => {

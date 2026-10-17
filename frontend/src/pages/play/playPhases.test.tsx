@@ -20,6 +20,7 @@ const result = {
   gained: 0,
   animeName: 'Shingeki no Kyojin',
   songLabel: 'OP1 · Guren no Yumiya',
+  team: null,
 }
 
 afterEach(() => {
@@ -62,7 +63,7 @@ describe('JoinForm', () => {
 
 describe('PlayerLobby', () => {
   it('shows my name, the player count and my measured delay', () => {
-    const me = { id: 'p1', name: 'Mai', score: 0, rank: 1, delayMs: 1200, calibrated: true }
+    const me = { id: 'p1', name: 'Mai', score: 0, rank: 1, delayMs: 1200, calibrated: true, team: null }
     render(<PlayerLobby snapshot={playerSnapshot({ playerCount: 5, me })} />)
     expect(screen.getByText('Mai')).toBeInTheDocument()
     expect(screen.getByText('Chờ quản trò bắt đầu…')).toBeInTheDocument()
@@ -133,7 +134,7 @@ describe('PlayerRound', () => {
 
   it('celebrates a correct answer with the points and rank', () => {
     const round = playerRound({ options, myAnswer: 0, result: { ...result, correct: true, gained: 870 } })
-    const me = { id: 'p1', name: 'Mai', score: 870, rank: 4, delayMs: 0, calibrated: false }
+    const me = { id: 'p1', name: 'Mai', score: 870, rank: 4, delayMs: 0, calibrated: false, team: null }
     render(<PlayerReveal snapshot={playerSnapshot({ phase: 'REVEAL', me })} round={round} />)
     expect(screen.getByText('✅ Đúng! +870 · Hạng 4')).toBeInTheDocument()
     expect(screen.getByText('OP1 · Guren no Yumiya')).toBeInTheDocument()
@@ -160,7 +161,7 @@ describe('PlayerFinished', () => {
       { playerId: 'p2', name: 'Long', score: 1500, rank: 1, gained: null },
       { playerId: 'p1', name: 'Mai', score: 870, rank: 2, gained: null },
     ]
-    const me = { id: 'p1', name: 'Mai', score: 870, rank: 2, delayMs: 0, calibrated: false }
+    const me = { id: 'p1', name: 'Mai', score: 870, rank: 2, delayMs: 0, calibrated: false, team: null }
     const { container } = render(<PlayerFinished snapshot={playerSnapshot({ phase: 'FINISHED', me, leaderboardTop })} />)
     expect(screen.getByText('Hạng 2/2')).toBeInTheDocument()
     expect(screen.getByText('870 điểm')).toBeInTheDocument()

@@ -7,6 +7,10 @@ import { CdDisc } from './CdDisc'
 import { DelayBadge } from './DelayBadge'
 import { Leaderboard } from './Leaderboard'
 import { Podium } from './Podium'
+import type { PodiumEntry } from './podiumEntries'
+import { TeamBoard } from './TeamBoard'
+import { TeamChip } from './TeamChip'
+import type { TeamRow } from './teams'
 import { TILES } from './tiles'
 
 const row = (playerId: string, name: string, score: number, rank: number, gained: number | null = null): LeaderboardRow => ({
@@ -16,6 +20,8 @@ const row = (playerId: string, name: string, score: number, rank: number, gained
   rank,
   gained,
 })
+
+const entry = (id: string, name: string, score: number, rank: number): PodiumEntry => ({ id, name, score, rank })
 
 describe('AnswerTile', () => {
   it('uses fixed letters and symbols', () => {
@@ -110,7 +116,12 @@ describe('Podium', () => {
   it('shows the top 3 with their rank on the podium blocks', () => {
     render(
       <Podium
-        rows={[row('a', 'An', 3000, 1), row('b', 'Bình', 2000, 2), row('c', 'Chi', 2000, 2), row('d', 'Dũng', 10, 4)]}
+        entries={[
+          entry('a', 'An', 3000, 1),
+          entry('b', 'Bình', 2000, 2),
+          entry('c', 'Chi', 2000, 2),
+          entry('d', 'Dũng', 10, 4),
+        ]}
       />,
     )
     const podium = screen.getByRole('list', { name: 'Bục vinh quang' })
@@ -167,5 +178,32 @@ describe('DelayBadge', () => {
     expect(screen.getByText('1.2s')).toBeInTheDocument()
     rerender(<DelayBadge delayMs={800} calibrated={false} />)
     expect(screen.getByText('~0.8s')).toHaveAttribute('title', 'Chưa đo, dùng trung vị của phòng')
+  })
+})
+
+describe('TeamChip', () => {
+  it('paints the chip in the team colour with an ink border', () => {
+    render(<TeamChip team={3} name="Mèo" size="sm" />)
+    expect(screen.getByText('Mèo')).toHaveClass('bg-pop-violet', 'border-pop-ink', 'text-sm')
+  })
+})
+
+describe('TeamBoard', () => {
+  const teams: TeamRow[] = [
+    { index: 0, name: 'Đội Đỏ', score: 0, rank: 2, gained: 0 },
+    { index: 1, name: 'Đội Chanh', score: 1870, rank: 1, gained: 870 },
+  ]
+
+  it('lists teams by rank with their points and marks my team', () => {
+    render(<TeamBoard teams={teams} highlight={0} />)
+    const items = within(screen.getByRole('list', { name: 'Bảng xếp hạng đội' })).getAllByRole('listitem')
+    expect(items.map((item) => item.textContent)).toEqual(['1Đội Chanh+8701.870', '2Đội Đỏ0'])
+    expect(items[0]).toHaveAttribute('data-me', 'false')
+    expect(items[1]).toHaveAttribute('data-me', 'true')
+  })
+
+  it('shows HÒA for a team whose vote was tied', () => {
+    render(<TeamBoard teams={teams} tiedTeams={[0]} />)
+    expect(within(screen.getByText('Đội Đỏ').closest('li')!).getByText('HÒA')).toBeInTheDocument()
   })
 })

@@ -1,5 +1,6 @@
 import { Leaderboard } from '../../components/Leaderboard'
 import { Podium } from '../../components/Podium'
+import { playerPodium } from '../../components/podiumEntries'
 import { PopChip } from '../../components/PopPanel'
 import type { PlayerSnapshot } from '../../lib/protocol'
 
@@ -17,7 +18,7 @@ export function PlayerFinished({ snapshot }: { snapshot: PlayerSnapshot }) {
         </p>
         <p className="text-xl font-semibold text-neutral-300">{me.score.toLocaleString('vi-VN')} điểm</p>
       </div>
-      <Podium rows={rows} />
+      <Podium entries={playerPodium(rows)} />
       <div className="w-full text-left">
         <Leaderboard rows={rows} highlightId={me.id} />
       </div>

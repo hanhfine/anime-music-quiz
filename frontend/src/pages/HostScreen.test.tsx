@@ -17,6 +17,7 @@ const reveal = {
   optionCounts: [1, 0, 0, 0],
   animeName: 'Shingeki no Kyojin',
   songLabel: null,
+  teamPicks: null,
 }
 
 interface SetupOptions {

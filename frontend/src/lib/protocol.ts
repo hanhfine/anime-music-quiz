@@ -17,6 +17,7 @@ export type ErrorCode =
   | 'ALREADY_ANSWERED'
   | 'TOO_LATE'
   | 'KICKED'
+  | 'EMPTY_TEAM'
   | 'NETWORK' // chỉ có ở client: không nhận được ack
 
 export interface RoomSettings {
@@ -35,6 +36,38 @@ export interface LeaderboardRow {
   gained: number | null
 }
 
+export interface TeamPick {
+  team: number
+  option: number | null // null: hòa hoặc không ai bỏ phiếu
+  tied: boolean
+  gained: number
+}
+
+export interface HostTeam {
+  index: number
+  name: string
+  score: number
+  rank: number
+  gained: number | null // chỉ có khi REVEAL
+  memberIds: string[]
+}
+
+export interface PlayerTeam {
+  index: number
+  name: string
+  score: number
+  rank: number
+  gained: number | null // chỉ có khi REVEAL
+  members: string[] // tên thành viên
+}
+
+export interface PlayerTeamResult {
+  option: number | null
+  tied: boolean
+  correct: boolean
+  gained: number
+}
+
 export interface HostPlayer {
   id: string
   name: string
@@ -42,6 +75,7 @@ export interface HostPlayer {
   delayMs: number
   calibrated: boolean
   score: number
+  team: number | null
 }
 
 export interface HostCalib {
@@ -56,6 +90,7 @@ export interface HostReveal {
   optionCounts: number[]
   animeName: string
   songLabel: string | null
+  teamPicks: TeamPick[] | null
 }
 
 export interface HostRound {
@@ -79,6 +114,7 @@ export interface HostSnapshot {
   settings: RoomSettings
   serverNow: number
   players: HostPlayer[]
+  teams: HostTeam[] | null // theo chỉ số đội; null khi chơi thường
   calib: HostCalib | null
   round: HostRound | null
   leaderboard: LeaderboardRow[]
@@ -92,6 +128,7 @@ export interface PlayerMe {
   rank: number
   delayMs: number
   calibrated: boolean
+  team: number | null
 }
 
 export interface PlayerCalib {
@@ -105,6 +142,7 @@ export interface PlayerResult {
   gained: number
   animeName: string
   songLabel: string | null
+  team: PlayerTeamResult | null
 }
 
 export interface PlayerRound {
@@ -113,6 +151,7 @@ export interface PlayerRound {
   options: string[] | null
   deadline: number | null
   myAnswer: number | null
+  teamVotes: number[] | null // phiếu của đội mình theo từng ô
   result: PlayerResult | null
 }
 
@@ -123,6 +162,7 @@ export interface PlayerSnapshot {
   hostOnline: boolean
   playerCount: number
   me: PlayerMe
+  teams: PlayerTeam[] | null // theo chỉ số đội; null khi chơi thường
   calib: PlayerCalib | null
   round: PlayerRound | null
   leaderboardTop: LeaderboardRow[] | null
@@ -147,6 +187,7 @@ export interface RejoinAck {
 export const GRACE_MS = 3000
 export const PREPARE_TIMEOUT_MS = 10_000
 export const CALIB_ROUNDS = 3
+export const TEAM_COUNTS = [2, 3, 4] as const
 
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   ROOM_NOT_FOUND: 'Phòng không còn tồn tại',
@@ -160,6 +201,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   ALREADY_ANSWERED: 'Bạn đã trả lời rồi',
   TOO_LATE: 'Hết giờ rồi',
   KICKED: 'Bạn đã bị mời ra khỏi phòng',
+  EMPTY_TEAM: 'Còn đội chưa có người',
   NETWORK: 'Mất kết nối tới server, thử lại nhé',
 }
 

@@ -13,8 +13,8 @@ import { HostQuestion } from './HostQuestion'
 vi.mock('../../lib/beep', () => ({ beep: vi.fn() }))
 
 const players: HostPlayer[] = [
-  { id: 'p1', name: 'Mai', online: true, delayMs: 1200, calibrated: true, score: 870 },
-  { id: 'p2', name: 'Long', online: false, delayMs: 800, calibrated: false, score: 0 },
+  { id: 'p1', name: 'Mai', online: true, delayMs: 1200, calibrated: true, score: 870, team: null },
+  { id: 'p2', name: 'Long', online: false, delayMs: 800, calibrated: false, score: 0, team: null },
 ]
 
 const leaderboard: LeaderboardRow[] = [
@@ -27,6 +27,7 @@ const reveal = {
   optionCounts: [1, 1, 0, 0],
   animeName: 'Shingeki no Kyojin',
   songLabel: 'OP1 · Guren no Yumiya',
+  teamPicks: null,
 }
 
 afterEach(() => {

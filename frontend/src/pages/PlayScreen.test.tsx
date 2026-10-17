@@ -98,7 +98,7 @@ describe('PlayScreen', () => {
     await user.click(screen.getByRole('button', { name: 'B: Naruto' }))
     expect(socket.payloads('player:answer')).toEqual([{ roundIndex: 0, optionIndex: 1 }])
 
-    const result = { correctIndex: 0, correct: false, gained: 0, animeName: 'Shingeki no Kyojin', songLabel: null }
+    const result = { correctIndex: 0, correct: false, gained: 0, animeName: 'Shingeki no Kyojin', songLabel: null, team: null }
     push({ phase: 'REVEAL', round: playerRound({ options, myAnswer: 1, result }) })
     expect(screen.getByText('❌ Sai, đáp án là A · Shingeki no Kyojin')).toBeInTheDocument()
   })
