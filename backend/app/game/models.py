@@ -11,6 +11,7 @@ from app.game.constants import (
     DEFAULT_REVEAL_SEC,
     GRACE_SEC,
 )
+from app.game.teams import TeamResult
 
 
 class Phase(StrEnum):
@@ -106,3 +107,4 @@ class RoundState:
     t0: int | None = None
     deadline: int | None = None
     answers: dict[str, Answer] = field(default_factory=dict)
+    team_results: dict[int, TeamResult] = field(default_factory=dict)  # điền lúc công bố

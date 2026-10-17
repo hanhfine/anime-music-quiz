@@ -1,4 +1,5 @@
 from app.game.models import Phase
+from app.game.teams import TeamResult
 from tests.factories import game_error, make_room, make_songs
 
 
@@ -24,6 +25,16 @@ def play_round(room, now, correct=()):
     for player_id in correct:
         room.answer(player_id, index, correct_index(room), now)
     room.tick(room.round.deadline)
+
+
+def team_game(names=("A", "B", "C"), count=2, now=10_000, **settings):
+    """Phòng chơi theo đội (A, C đội 0; B đội 1), đã phát nhạc lúc `now`, hạn chót now + 18000."""
+    room = make_room(**settings)
+    ids = [room.add_player(name).id for name in names]
+    room.set_teams(count)
+    room.start_game()
+    room.audio_started(0, now)
+    return room, ids
 
 
 def test_start_needs_a_player():
@@ -249,3 +260,106 @@ def test_leaderboard_uses_competition_ranking_and_name_order():
     play_round(room, 10_000, correct=[bao, an])
     board = [(player.name, rank) for player, rank in room.leaderboard()]
     assert board == [("An", 1), ("bao", 1), ("Cuong", 3)]
+
+
+def test_team_players_can_change_their_vote_until_the_deadline():
+    room, (a, _, _) = team_game()
+    room.answer(a, 0, wrong_index(room), 11_000)
+    room.answer(a, 0, correct_index(room), 12_000)
+    vote = room.round.answers[a]
+    assert (vote.option_index, vote.received_at) == (correct_index(room), 12_000)
+    assert game_error(room.answer, a, 0, wrong_index(room), 28_001) == "TOO_LATE"
+
+
+def test_voting_for_the_same_tile_again_keeps_the_first_time():
+    room, (a, _, _) = team_game()
+    room.answer(a, 0, correct_index(room), 11_000)
+    room.answer(a, 0, correct_index(room), 13_000)
+    assert room.round.answers[a].received_at == 11_000
+
+
+def test_team_scores_use_the_mean_time_of_the_winning_votes():
+    room, (a, b, c) = team_game()
+    room.answer(a, 0, correct_index(room), 12_000)
+    room.answer(b, 0, wrong_index(room), 10_500)
+    room.answer(c, 0, correct_index(room), 14_000)
+    assert room.phase is Phase.REVEAL
+    results = room.round.team_results
+    # Đội 0: trung bình (2000 + 4000) / 2 = 3000 ms → 900 điểm.
+    assert results[0] == TeamResult(correct_index(room), False, 900)
+    assert results[1] == TeamResult(wrong_index(room), False, 0)
+    assert [team.score for team in room.teams] == [900, 0]
+    assert [room.players[pid].score for pid in (a, b, c)] == [0, 0, 0]
+    assert {answer.gained for answer in room.round.answers.values()} == {0}
+
+
+def test_team_scores_subtract_each_voter_delay():
+    room, (a, b) = team_game(names=("A", "B"))
+    room.players[a].delay_ms = 1_000
+    room.players[b].delay_ms = 0
+    room.answer(b, 0, correct_index(room), 10_000)
+    room.answer(a, 0, correct_index(room), 14_000)
+    # A: 14000 - 10000 - 1000 = 3000 ms → 900. B: 0 ms → 1000.
+    assert [team.score for team in room.teams] == [900, 1_000]
+
+
+def test_a_tied_team_blocks_the_early_reveal_and_scores_zero():
+    room, (a, b, c) = team_game()
+    room.answer(b, 0, correct_index(room), 10_000)
+    room.answer(a, 0, correct_index(room), 11_000)
+    room.answer(c, 0, wrong_index(room), 11_000)
+    assert room.phase is Phase.ANSWERING
+    room.tick(28_000)
+    assert room.round.team_results[0] == TeamResult(None, True, 0)
+    assert [team.score for team in room.teams] == [0, 1_000]
+
+
+def test_breaking_the_tie_reveals_at_once():
+    room, (a, b, c) = team_game()
+    room.answer(b, 0, correct_index(room), 10_000)
+    room.answer(a, 0, correct_index(room), 11_000)
+    room.answer(c, 0, wrong_index(room), 11_000)
+    assert room.phase is Phase.ANSWERING
+    room.answer(c, 0, correct_index(room), 13_000)
+    assert room.phase is Phase.REVEAL
+
+
+def test_offline_votes_still_count_but_kicked_votes_do_not():
+    room, (a, b, c) = team_game()
+    room.answer(c, 0, wrong_index(room), 10_000)
+    room.set_player_online(c, False)
+    room.answer(a, 0, correct_index(room), 10_000)
+    room.answer(b, 0, correct_index(room), 10_000)
+    assert room.phase is Phase.ANSWERING  # phiếu của C vẫn tính nên đội 0 đang hòa
+    room.kick(c)
+    assert room.phase is Phase.REVEAL
+    assert [team.score for team in room.teams] == [1_000, 1_000]
+
+
+def test_a_team_without_votes_scores_zero():
+    room, (a, _, _) = team_game()
+    room.answer(a, 0, correct_index(room), 10_000)
+    room.tick(28_000)
+    assert room.round.team_results[1] == TeamResult(None, False, 0)
+    assert [team.score for team in room.teams] == [1_000, 0]
+
+
+def test_replaying_a_revealed_round_takes_back_team_points():
+    room, ids = team_game()
+    for pid in ids:
+        room.answer(pid, 0, correct_index(room), 10_000)
+    assert [team.score for team in room.teams] == [1_000, 1_000]
+    room.replay_round()
+    assert [team.score for team in room.teams] == [0, 0]
+    assert room.round.team_results == {}
+
+
+def test_play_again_resets_team_scores_but_keeps_the_teams():
+    room, ids = team_game(question_count=1)
+    for pid in ids:
+        room.answer(pid, 0, correct_index(room), 10_000)
+    room.next_round(30_000)
+    assert room.phase is Phase.FINISHED
+    room.play_again()
+    assert [(team.name, team.score) for team in room.teams] == [("Đội Đỏ", 0), ("Đội Chanh", 0)]
+    assert [room.players[pid].team for pid in ids] == [0, 1, 0]

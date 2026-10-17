@@ -20,7 +20,7 @@ from app.game.models import (
 )
 from app.game.question_builder import build_game, build_question
 from app.game.scoring import answer_deadline, competition_ranks, effective_time_ms, points
-from app.game.teams import balanced_assignment, smallest_team
+from app.game.teams import TeamResult, balanced_assignment, smallest_team, team_result
 
 
 class Room:
@@ -261,17 +261,41 @@ class Room:
         player.team = smallest_team(self._team_sizes())
 
     def _maybe_reveal_early(self) -> None:
-        """Sang REVEAL khi mọi người online đã trả lời (chỉ khi có ít nhất 1 người online)."""
+        """Sang REVEAL khi mọi người online đã trả lời (chỉ khi có ít nhất 1 người online).
+
+        Chế độ đội: còn đội đang hòa phiếu thì chờ tới hạn chót để đội tự gỡ.
+        """
         if self.phase is not Phase.ANSWERING:
             return
         online = [pid for pid, p in self.players.items() if p.online]
-        if online and all(pid in self.round.answers for pid in online):
-            self._reveal()
+        if not online or not all(pid in self.round.answers for pid in online):
+            return
+        if self.team_mode and any(result.tied for result in self._team_results().values()):
+            return
+        self._reveal()
 
     def _reveal(self) -> None:
         for player_id, answer in self.round.answers.items():
             self.players[player_id].score += answer.gained
+        if self.team_mode:
+            self.round.team_results = self._team_results()
+            for team, result in self.round.team_results.items():
+                self.teams[team].score += result.gained
         self.phase = Phase.REVEAL
+
+    def _team_results(self) -> dict[int, TeamResult]:
+        """Kết quả mọi đội từ phiếu của thành viên hiện tại, kể cả người đang offline."""
+        rnd = self.round
+        question = rnd.question
+        delays = self.effective_delays()
+        votes: dict[int, list[tuple[int, int]]] = {index: [] for index in range(len(self.teams))}
+        for player_id, answer in rnd.answers.items():
+            t_ms = effective_time_ms(answer.received_at, rnd.t0, delays[player_id])
+            votes[self.players[player_id].team].append((answer.option_index, t_ms))
+        return {
+            team: team_result(team_votes, len(question.options), question.correct_index, question.clip_ms)
+            for team, team_votes in votes.items()
+        }
 
     # ---- ván chơi ----
 
@@ -294,18 +318,24 @@ class Room:
         self.notice = None
 
     def answer(self, player_id: str, round_index: int, option_index: int, now: int) -> None:
+        """Chơi thường: bấm là chốt. Chế độ đội: bỏ hoặc đổi phiếu tới hạn chót."""
         self._require(Phase.ANSWERING)
         self._check_round(round_index)
         rnd = self.round
         if not 0 <= option_index < len(rnd.question.options):
             raise GameError("INVALID_STATE")
-        if player_id in rnd.answers:
+        previous = rnd.answers.get(player_id)
+        if previous is not None and not self.team_mode:
             raise GameError("ALREADY_ANSWERED")
         if now > rnd.deadline:
             raise GameError("TOO_LATE")
-        t_ms = effective_time_ms(now, rnd.t0, self.effective_delays().get(player_id, 0))
-        correct = option_index == rnd.question.correct_index
-        rnd.answers[player_id] = Answer(option_index, now, points(correct, t_ms, rnd.question.clip_ms))
+        if previous is not None and previous.option_index == option_index:
+            return  # bấm lại ô đang bầu: giữ thời điểm cũ để không bị tính chậm
+        gained = 0  # chế độ đội tính điểm cho cả đội lúc công bố
+        if not self.team_mode:
+            t_ms = effective_time_ms(now, rnd.t0, self.effective_delays().get(player_id, 0))
+            gained = points(option_index == rnd.question.correct_index, t_ms, rnd.question.clip_ms)
+        rnd.answers[player_id] = Answer(option_index, now, gained)
         self._maybe_reveal_early()
 
     def replay_round(self) -> None:
@@ -313,6 +343,8 @@ class Room:
         if self.phase is Phase.REVEAL:
             for player_id, answer in self.round.answers.items():
                 self.players[player_id].score -= answer.gained
+            for team, result in self.round.team_results.items():
+                self.teams[team].score -= result.gained
         self._enter_round(self.round.index)
 
     def audio_failed(self, round_index: int, now: int) -> None:
@@ -344,6 +376,8 @@ class Room:
         self._require(Phase.FINISHED)
         for player in self.players.values():
             player.score = 0
+        for team in self.teams:
+            team.score = 0
         self.phase = Phase.LOBBY
         self.questions, self.spares = [], []
         self.round = None
